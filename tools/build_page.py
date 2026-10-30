@@ -37,6 +37,23 @@ r("setInterval(()=>{if(document.visibilityState===\"visible\")runLeague()},60000
   runLeague()},30000);""")
 r("const uid=await user.id();", "const uid=await user.id();book.deleted=[];")
 
+# 4a. fixBook ne doit pas perdre le propriétaire ni l'horodatage des équipes.
+r("resv:Array.isArray(t.resv)?t.resv.filter(n=>typeof n===\"string\"):null,",
+  "resv:Array.isArray(t.resv)?t.resv.filter(n=>typeof n===\"string\"):null,owner:typeof t.owner===\"string\"?t.owner:undefined,ts:+t.ts||0,")
+
+# 4b. Chaque frère ne modifie que son équipe (window.ME vient du serveur via shim.js).
+r("function save(){if(typeof state!==\"undefined\"&&state)state.ts=Date.now();",
+  "function RO(){return viewAI!=null||!!(window.ME&&window.ME!==\"admin\"&&state&&state.owner&&state.owner!==window.ME)}\nfunction save(){if(typeof state!==\"undefined\"&&state){if(!state.owner&&window.ME&&window.ME!==\"admin\")state.owner=window.ME;if(!RO())state.ts=Date.now()}")
+for a in ['document.getElementById("teamName").readOnly=viewAI!=null', 'document.getElementById("formation").disabled=viewAI!=null',
+          'ts.disabled=viewAI!=null', 'document.body.classList.toggle("view-ai",viewAI!=null)',
+          'document.getElementById("delTeam").hidden=viewAI!=null', 'document.getElementById("delTeam").disabled=book.teams.length<2||viewAI!=null',
+          'document.getElementById("tactic").onchange=e=>{if(viewAI!=null)return;', 'b.onclick=()=>{if(viewAI!=null)return;spOpen']:
+    r(a, a.replace("viewAI!=null", "RO()"))
+r('document.addEventListener("pointerdown",e=>{\n  if(viewAI!=null)return;', 'document.addEventListener("pointerdown",e=>{\n  if(RO())return;')
+r('if(viewAI!=null){toast("Équipe IA : lecture seule");return}', 'if(RO()){toast(viewAI!=null?"Équipe IA : lecture seule":`Équipe de ${state.owner} : lecture seule`);return}')
+r('const ab=document.getElementById("aiBanner");if(ab){ab.hidden=viewAI==null;if(viewAI!=null)document.getElementById("aiBannerName").textContent=state.name}',
+  'const ab=document.getElementById("aiBanner");if(ab){ab.hidden=!RO();if(RO()){document.getElementById("aiBannerName").textContent=state.name;const s=ab.querySelector("span");if(s&&s.lastChild)s.lastChild.textContent=viewAI!=null?" · équipe IA, lecture seule":` · équipe de ${state.owner}, lecture seule`;const a=ab.querySelector("a");if(a)a.hidden=viewAI==null}}')
+
 # 5. Squelette HTML complet + shim de l'API.
 head = """<!doctype html>
 <html lang="fr">
@@ -49,6 +66,10 @@ head = """<!doctype html>
 <link rel="icon" href="/favicon-16.png" sizes="16x16" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Compo FC">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>[hidden]{display:none!important}body{margin:0}</style>
 <script>window.SERVER_SIM=true</script>
 <script src="/shim.js"></script>

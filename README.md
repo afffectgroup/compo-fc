@@ -12,7 +12,9 @@ Compos d'équipe, championnat simulé (10 équipes, coupe) et résultats postés
 2. Dans le service, onglet **Variables** :
    | Variable | Valeur |
    |---|---|
-   | `ACCESS_KEY` | le code d'accès à l'app (à choisir) |
+   | `CODE_JULIEN` | le code de Julien (il ne peut modifier que son équipe) |
+   | `CODE_YOAN` | le code de Yoan |
+   | `ACCESS_KEY` | facultatif : code administrateur qui peut tout modifier |
    | `SLACK_WEBHOOK_URL` | l'URL « Incoming Webhook » du canal Slack |
    | `DATA_DIR` | `/data` |
    | `TZ` | `Europe/Paris` |
@@ -36,3 +38,10 @@ api.slack.com/apps → *Create New App* → *From scratch* → **Incoming Webhoo
 ## Variables optionnelles
 
 - `APP_URL` : lien ajouté sous chaque message Slack (déduit automatiquement sur Railway).
+
+## Installer l'app sur le téléphone
+
+- **iPhone (Safari)** : bouton Partager → *Sur l'écran d'accueil*.
+- **Android (Chrome)** : menu ⋮ → *Installer l'application*.
+
+L'app s'ouvre alors en plein écran ; hors connexion, elle affiche la dernière version consultée.

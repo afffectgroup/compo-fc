@@ -1,5 +1,8 @@
 // Remplace l'API claude.ai (base de données, utilisateur, téléchargements) par l'API du serveur.
 (function () {
+  // Qui est connecté (Julien, Yoan…) : chacun ne modifie que son équipe.
+  try { const x = new XMLHttpRequest(); x.open("GET", "/api/me", false); x.send(); if (x.status === 200) window.ME = JSON.parse(x.responseText).user; } catch (e) {}
+  if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
   async function api(path, opts) {
     const r = await fetch(path, Object.assign({ credentials: "same-origin" }, opts || {}));
     if (r.status === 401) { location.href = "/login"; throw new Error("auth"); }

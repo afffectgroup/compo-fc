@@ -9,6 +9,10 @@
 <link rel="icon" href="/favicon-16.png" sizes="16x16" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Compo FC">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>[hidden]{display:none!important}body{margin:0}</style>
 <script>window.SERVER_SIM=true</script>
 <script src="/shim.js"></script>
@@ -2863,9 +2867,9 @@ function renderTabs(){
         if(tired.length)xb.append(el("p","muted",`Fatigué${tired.length>1?"s":""} : ${tired.map(n=>`${shortName(n)} (${conditionOf(n,k)} %)`).join(", ")}. Un joueur fatigué joue moins bien et se blesse plus facilement.`));
         if(warn.length)xb.append(el("p","muted",`Suspendu${warn.length>1?"s":""} au prochain carton jaune : ${warn.map(shortName).join(", ")}.`));
         xb.className="abs-banner"+(xiOut.length?" alert":"");xb.hidden=false}else xb.hidden=true}else xb.hidden=true}
-  const ab=document.getElementById("aiBanner");if(ab){ab.hidden=viewAI==null;if(viewAI!=null)document.getElementById("aiBannerName").textContent=state.name}
-  document.getElementById("delTeam").hidden=viewAI!=null;
-  document.getElementById("delTeam").disabled=book.teams.length<2||viewAI!=null;
+  const ab=document.getElementById("aiBanner");if(ab){ab.hidden=!RO();if(RO()){document.getElementById("aiBannerName").textContent=state.name;const s=ab.querySelector("span");if(s&&s.lastChild)s.lastChild.textContent=viewAI!=null?" · équipe IA, lecture seule":` · équipe de ${state.owner}, lecture seule`;const a=ab.querySelector("a");if(a)a.hidden=viewAI==null}}
+  document.getElementById("delTeam").hidden=RO();
+  document.getElementById("delTeam").disabled=book.teams.length<2||RO();
 }
 let photos = load(PKEY) || {};
 let target = null; // {kind:'xi'|'bench', i, role}
@@ -2873,7 +2877,8 @@ let target = null; // {kind:'xi'|'bench', i, role}
 function load(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}}
 let cloud=null, pushTimer=null;
 function setSync(txt,ok){const s=document.getElementById("syncState");if(!s)return;s.textContent=txt;s.classList.toggle("ok",!!ok)}
-function save(){if(typeof state!=="undefined"&&state)state.ts=Date.now();let ok=true;try{localStorage.setItem(BKEY,JSON.stringify(book))}catch(e){ok=false}
+function RO(){return viewAI!=null||!!(window.ME&&window.ME!=="admin"&&state&&state.owner&&state.owner!==window.ME)}
+function save(){if(typeof state!=="undefined"&&state){if(!state.owner&&window.ME&&window.ME!=="admin")state.owner=window.ME;if(!RO())state.ts=Date.now()}let ok=true;try{localStorage.setItem(BKEY,JSON.stringify(book))}catch(e){ok=false}
   if(cloud){clearTimeout(pushTimer);pushTimer=setTimeout(pushBook,700)}return ok}
 async function pushBook(){clearTimeout(pushTimer);pushTimer=null;if(!cloud)return false;
   try{await cloud.col.doc("book").set({teams:book.teams,cur:book.cur,deleted:book.deleted||[],updated:Date.now()});setSync("Synchronisé sur ton compte",true);return true}
@@ -2882,7 +2887,7 @@ function photoId(n){let h=0;for(const ch of n)h=(h*31+ch.charCodeAt(0))>>>0;retu
 async function pushPhoto(name){if(!cloud)return;try{await cloud.col.doc(photoId(name)).set({name,src:photos[name]})}catch(e){toast("Photo gardée sur cet appareil seulement")}}
 function fixBook(b){if(!b||!Array.isArray(b.teams))return b;
   b.teams=b.teams.map(t=>({id:t.id||("t"+Math.random().toString(36).slice(2,10)),name:t.name||"Sans nom",formation:FORMATIONS[t.formation]?t.formation:"4-3-3",
-    xi:Array.from({length:11},(_,i)=>(t.xi&&t.xi[i])||null),bench:Array.from({length:7},(_,i)=>(t.bench&&t.bench[i])||null),res:Array.from({length:3},(_,i)=>(t.res&&t.res[i])||null),resv:Array.isArray(t.resv)?t.resv.filter(n=>typeof n==="string"):null,captain:typeof t.captain==="string"?t.captain:null,takers:(t.takers&&typeof t.takers==="object")?{...t.takers}:{},tactic:TACTICS[t.tactic]?t.tactic:"equilibre"}));return b}
+    xi:Array.from({length:11},(_,i)=>(t.xi&&t.xi[i])||null),bench:Array.from({length:7},(_,i)=>(t.bench&&t.bench[i])||null),res:Array.from({length:3},(_,i)=>(t.res&&t.res[i])||null),resv:Array.isArray(t.resv)?t.resv.filter(n=>typeof n==="string"):null,owner:typeof t.owner==="string"?t.owner:undefined,ts:+t.ts||0,captain:typeof t.captain==="string"?t.captain:null,takers:(t.takers&&typeof t.takers==="object")?{...t.takers}:{},tactic:TACTICS[t.tactic]?t.tactic:"equilibre"}));return b}
 async function pullCloud(){
   const snap=await cloud.col.get();let remote=null;
   for(const d of snap.docs){const v=d.data();if(d.id==="league"&&v&&v.schedule){const rl=JSON.parse(JSON.stringify(v));if(!league||!league.schedule||rl.id===league.id||!league.results||Object.keys(rl.results||{}).length>=Object.keys(league.results).length){league=rl;try{localStorage.setItem(LKEY,JSON.stringify(league))}catch(e){}}}else if(d.id==="matches"&&v&&Array.isArray(v.list)){const rm=JSON.parse(JSON.stringify(v));const seen=new Set(rm.list.map(x=>x.date));(matches.list||[]).forEach(x=>{if(!seen.has(x.date))rm.list.push(x)});matches={home:rm.home||matches.home,away:rm.away||matches.away,since:[rm.since,matches.since].filter(Boolean).sort()[0]||null,list:rm.list};try{localStorage.setItem(MKEY,JSON.stringify(matches))}catch(e){}}else if(d.id==="book")remote=fixBook(JSON.parse(JSON.stringify(v)));else if(v&&v.name&&v.src)photos[v.name]=v.src}
@@ -2970,7 +2975,7 @@ function cardFor(p,role){
 }
 let drag=null, dragJustEnded=false;
 document.addEventListener("pointerdown",e=>{
-  if(viewAI!=null)return;
+  if(RO())return;
   const s=e.target.closest&&e.target.closest(".slot[data-player]");if(!s||e.button>0)return;
   drag={s,x:e.clientX,y:e.clientY,ghost:null,over:null,id:e.pointerId};
 });
@@ -3050,8 +3055,8 @@ function render(){
   f.forEach(([role],i)=>{const li=el("li");const p=BY[state.xi[i]];
     li.append(el("span",null,`${POS_FR[role]} · ${p?p.name:"—"}${p&&p.name===state.captain?" (C)":""}`),el("span",null,p?`${p.ovr} · ${p.club}`:""));ul.append(li)});}
   document.getElementById("teamName").value=state.name;
-  document.getElementById("teamName").readOnly=viewAI!=null; document.getElementById("formation").disabled=viewAI!=null;{const ts=document.getElementById("tactic");if(ts&&!ts.options.length)Object.entries(TACTICS).forEach(([k,v])=>ts.append(new Option(v.lab,k)));if(ts){ts.value=state.tactic||"equilibre";ts.disabled=viewAI!=null;ts.title=tacOf(state).d}}
-  document.body.classList.toggle("view-ai",viewAI!=null);
+  document.getElementById("teamName").readOnly=RO(); document.getElementById("formation").disabled=RO();{const ts=document.getElementById("tactic");if(ts&&!ts.options.length)Object.entries(TACTICS).forEach(([k,v])=>ts.append(new Option(v.lab,k)));if(ts){ts.value=state.tactic||"equilibre";ts.disabled=RO();ts.title=tacOf(state).d}}
+  document.body.classList.toggle("view-ai",RO());
   renderTabs();
   document.getElementById("formation").value=state.formation;
   save();
@@ -3072,7 +3077,7 @@ let pending=null;
 function currentName(){return (state[target.kind]||[])[target.i]||null}
 
 function openPicker(t){
-  if(viewAI!=null){toast("Équipe IA : lecture seule");return}
+  if(RO()){toast(viewAI!=null?"Équipe IA : lecture seule":`Équipe de ${state.owner} : lecture seule`);return}
   target=t;
   document.getElementById("sheetTitle").textContent = t.kind==="xi"?`Choisir : ${POS_FR[t.role]}`:t.kind==="res"?"Choisir un réserviste (moins de 20 ans)":"Choisir un remplaçant";
   const fPos=document.getElementById("fPos"); fPos.checked=t.role!=="SUB"; fPos.disabled=t.role==="SUB"; setGroup("");
@@ -3179,7 +3184,7 @@ const _pi=document.getElementById("photoInput"); if(_pi)_pi.onchange=e=>{
 const fSel=document.getElementById("formation");
 Object.keys(FORMATIONS).forEach(k=>fSel.append(new Option(k,k)));
 fSel.onchange=()=>{state.formation=fSel.value;render()};
-document.getElementById("tactic").onchange=e=>{if(viewAI!=null)return;state.tactic=e.target.value;save();render();toast(`Tactique : ${tacOf(state).lab}`)};
+document.getElementById("tactic").onchange=e=>{if(RO())return;state.tactic=e.target.value;save();render();toast(`Tactique : ${tacOf(state).lab}`)};
 document.getElementById("teamName").oninput=e=>{state.name=e.target.value;renderTabs();save()};
 const _sv=document.getElementById("saveBtn"); if(_sv)_sv.onclick=()=>{
   save();const h=new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
@@ -3239,7 +3244,7 @@ function renderSetPieces(){
     const item=el("div","sp-item"+(spOpen===k?" open":"")); item.append(el("span","sp-lab",lab));
     const b=el("button","slot sp-slot"); b.type="button"; const n=state.takers[k], p=n&&BY[n];
     b.append(p?cardFor(p,"SUB"):el("div","empty","+")); b.setAttribute("aria-label",`${lab} : ${p?p.name:"aucun"}, changer`);
-    b.onclick=()=>{if(viewAI!=null)return;spOpen=spOpen===k?null:k;renderSetPieces()}; item.append(b); grid.append(item)});
+    b.onclick=()=>{if(RO())return;spOpen=spOpen===k?null:k;renderSetPieces()}; item.append(b); grid.append(item)});
   box.append(grid);
   if(spOpen){
     const lab=SETP.find(s=>s[0]===spOpen)[1], ch=el("div","sp-choose");
