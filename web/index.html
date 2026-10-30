@@ -4031,7 +4031,11 @@ document.getElementById("imgBtn").onclick=async e=>{
       let d=c.toDataURL("image/webp",.86);if(!d.startsWith("data:image/webp"))d=c.toDataURL("image/png");res(d)};img.onerror=()=>{URL.revokeObjectURL(url);rej()};img.src=url});
     const upload=async(name,file)=>{const d=await shrink(file);const r=await fetch("/api/photo",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({data:d})});if(!r.ok)throw new Error(r.status);return (await r.json()).url};
     const norm=s=>s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
-    const push=()=>{clearTimeout(timer);timer=setTimeout(async()=>{try{await cloud.col.doc("photos").set(draft);photos={...draft};render();toast("Photos enregistrées")}catch(e){toast("Échec de l'enregistrement")}},500)};
+    // Enregistrement immédiat à chaque changement (plus de délai : un rafraîchissement juste après ne perd rien)
+    let chain=Promise.resolve();
+    const push=()=>{const snap={...draft};photos={...snap};render();
+      chain=chain.then(()=>fetch("/api/docs/photos",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(snap),keepalive:true}))
+        .then(r=>{if(!r.ok)throw new Error(r.status);toast("Photo enregistrée ✓")}).catch(()=>toast("Échec de l'enregistrement, réessaie"));return chain};
     book.teams.forEach(T=>{list.append(el("div","ph-team",T.name));
       [...new Set([...T.xi,...(T.bench||[]),...(T.res||[])].filter(n=>n&&BY[n]))].forEach(n=>{const p=BY[n],row=el("div","ph-row"),pv=el("div","ph-prev");
         if(draft[n])pv.style.backgroundImage=`url("${draft[n]}")`;
@@ -4111,7 +4115,7 @@ document.getElementById("imgBtn").onclick=async e=>{
 
 <style>
 /* ---- Photos des joueurs (liens ajoutés par l'admin) ---- */
-.card .ph{position:absolute;left:18%;top:6%;width:84%;height:67%;max-width:none;object-fit:contain;object-position:center bottom;pointer-events:none;z-index:0;
+.card .ph{position:absolute;left:14%;top:27%;width:72%;height:48%;max-width:none;object-fit:contain;object-position:center bottom;pointer-events:none;z-index:0;
   -webkit-mask-image:linear-gradient(180deg,#000 80%,transparent);mask-image:linear-gradient(180deg,#000 80%,transparent)}
 .card .top,.card .bottom{position:relative;z-index:1}
 .card.has-ph .flag{opacity:.95}
