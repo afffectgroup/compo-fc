@@ -158,7 +158,16 @@ const server = http.createServer(async (req, res) => {
     }
     if (p === "/api/me") return send(res, 200, { user: userOf(req) });
     if (p === "/api/docs" && req.method === "GET") {
-      return send(res, 200, { docs: Object.entries(store.docs).map(([id, data]) => ({ id, data })) });
+      // Suspense : chacun ne reçoit que ses propres équipes (la compo de l'autre reste cachée).
+      const user = userOf(req);
+      const docs = Object.entries(store.docs).map(([id, data]) => {
+        if (id === "book" && AUTH_ON && user !== "admin" && data && Array.isArray(data.teams)) {
+          const teams = data.teams.filter(t => !t.owner || t.owner === user);
+          return { id, data: { ...data, teams, cur: 0 } };
+        }
+        return { id, data };
+      });
+      return send(res, 200, { docs });
     }
     const m = p.match(/^\/api\/docs\/([A-Za-z0-9_\-.]{1,80})$/);
     if (m && req.method === "PUT") {
