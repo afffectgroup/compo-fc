@@ -70,20 +70,20 @@ const REPORT_JS = String.raw`
     if(lr){
       const st=standings();
       L.push("","*Classement*");
-      st.forEach((s,i)=>{if(i<3||mineIds.has(s.id))L.push((i+1)+". "+(mineIds.has(s.id)?"*"+s.name+"*":s.name)+" · "+s.pts+" pts ("+s.g+"V "+s.n+"N "+s.p+"D, "+(s.bp-s.bc>=0?"+":"")+(s.bp-s.bc)+")")});
+      st.forEach((s,i)=>{if(mineIds.has(s.id))L.push((i+1)+"e · *"+s.name+"* · "+s.pts+" pts ("+s.g+"V "+s.n+"N "+s.p+"D, "+(s.bp-s.bc>=0?"+":"")+(s.bp-s.bc)+")")});
     }
     return L.join("\n");
   }
   function reminder(k){
     refreshAbs();setMods(k);
-    const L=["*⏰ "+(dayLabel(k)||"Prochain match")+" · "+fmtSlot(k)+"*","Derniers changements possibles avant "+slotHour(k)+"h."];
+    const L=["","*➡️ Prochain : "+(dayLabel(k)||"match")+" · "+fmtSlot(k)+"*"];
     league.mine.forEach(mm=>{
       const T=book.teams.find(t=>t.id===mm.id);if(!T)return;
       const fx=[];
       if(league.schedule[k]&&!league.results[k])league.schedule[k].forEach(([h,a])=>{if(h===mm.id)fx.push("contre "+nm(a)+" (dom.)");if(a===mm.id)fx.push("à "+nm(h)+" (ext.)")});
       if(league.cup)league.cup.rounds.forEach((R,i)=>{if(R.day!==k||league.cup.results[i])return;ensureCupTies(i);(R.ties||[]).forEach(([h,a])=>{if(h===mm.id)fx.push("Coupe contre "+nm(a));if(a===mm.id)fx.push("Coupe à "+nm(h))})});
       if(!fx.length)return;
-      L.push("","*"+T.name+"* · "+fx.join(" puis "));
+      L.push("*"+T.name+"* · "+fx.join(" puis "));
       const xi=T.xi.filter(Boolean),bench=(T.bench||[]).filter(Boolean);
       const out=xi.filter(n=>statusOf(n,k)).map(n=>{const s=statusOf(n,k);return n+" ("+(s.type==="inj"?"blessé":"suspendu")+", "+s.left+" match"+(s.left>1?"s":"")+")"});
       const bout=bench.filter(n=>statusOf(n,k)).map(n=>n);
@@ -128,21 +128,14 @@ function tick(docs, meta, now = new Date()) {
     for (const D of playedSlots(league)) if (!posted.has(D)) { msgs.push({ kind: "results", slot: D, text: R.results(D) }); posted.add(D); }
     let seasonEndPosted = meta.seasonEnd || null;
     if (w.eval("seasonDone()") && seasonEndPosted !== league.id) { msgs.push({ kind: "season", text: R.seasonEnd() }); seasonEndPosted = league.id; }
-    const reminded = new Set(meta.reminded || []);
+    // Pas de rappel séparé : le prochain match et les absents sont ajoutés au dernier message de résultats.
     const k = w.eval("nextDay()");
-    let reminderSlot = null;
-    if (k >= 0) {
-      const at = w.eval(`roundDate(${k}).getTime()`);
-      const key = league.id + ":" + k;
-      if (now.getTime() >= at - (meta.reminderMinutes || 30) * 60000 && now.getTime() < at && !reminded.has(key)) {
-        msgs.push({ kind: "reminder", slot: k, text: R.reminder(k) });
-        reminded.add(key);
-      }
-      reminderSlot = at;
-    }
+    const nextSlotAt = k >= 0 ? w.eval(`roundDate(${k}).getTime()`) : null;
+    const last = [...msgs].reverse().find(m => m.kind === "results");
+    if (last && k >= 0) last.text += "\n" + R.reminder(k);
     return {
-      league, book, msgs, errors: page.errors, nextSlotAt: reminderSlot,
-      meta: { ...meta, posted: [...posted], reminded: [...reminded].slice(-200), seasonEnd: seasonEndPosted, leagueId: league.id },
+      league, book, msgs, errors: page.errors, nextSlotAt,
+      meta: { ...meta, posted: [...posted], seasonEnd: seasonEndPosted, leagueId: league.id },
     };
   } finally { page.close(); }
 }

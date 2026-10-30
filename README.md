@@ -3,7 +3,7 @@
 Compos d'équipe, championnat simulé (10 équipes, coupe) et résultats postés sur Slack.
 
 - Les matchs se jouent **tous les jours à 9h et 14h** (heure de Paris), côté serveur, même si personne n'ouvre l'app.
-- Slack reçoit les **résultats** après chaque journée, un **rappel 30 min avant** chaque match (absents, fatigués, menacés de suspension) et le **bilan de fin de saison**.
+- Slack reçoit les **résultats** après chaque journée (avec le prochain match, les absents et les fatigués de nos équipes) et le **bilan de fin de saison**.
 - Toutes les personnes qui ont le code d'accès voient et modifient le même championnat.
 
 ## Déploiement sur Railway
@@ -35,5 +35,4 @@ api.slack.com/apps → *Create New App* → *From scratch* → **Incoming Webhoo
 
 ## Variables optionnelles
 
-- `REMINDER_MINUTES` (30 par défaut) : délai du rappel avant chaque match.
 - `APP_URL` : lien ajouté sous chaque message Slack (déduit automatiquement sur Railway).

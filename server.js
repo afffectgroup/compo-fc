@@ -12,7 +12,6 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const ACCESS_KEY = process.env.ACCESS_KEY || "";
 const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL || "";
 const APP_URL = (process.env.APP_URL || process.env.RAILWAY_PUBLIC_DOMAIN && "https://" + process.env.RAILWAY_PUBLIC_DOMAIN || "").replace(/\/$/, "");
-const REMINDER_MINUTES = +process.env.REMINDER_MINUTES || 30;
 const STATE_FILE = path.join(DATA_DIR, "state.json");
 const SEED_FILE = path.join(__dirname, "seed", "state.json");
 
@@ -21,7 +20,7 @@ fs.mkdirSync(DATA_DIR, { recursive: true });
 function loadStore() {
   if (fs.existsSync(STATE_FILE)) return JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
   const seed = fs.existsSync(SEED_FILE) ? JSON.parse(fs.readFileSync(SEED_FILE, "utf8")) : { docs: {} };
-  const store = { docs: seed.docs || {}, meta: { reminderMinutes: REMINDER_MINUTES } };
+  const store = { docs: seed.docs || {}, meta: {} };
   const L = store.docs.league;
   if (L) { store.meta.leagueId = L.id; store.meta.posted = playedSlots(L); } // pas de rattrapage des journées déjà jouées
   return store;
@@ -81,8 +80,8 @@ async function runTick(force) {
   try {
     if (!store.docs.league || !store.docs.book) return;
     const next = store.meta.nextAt || 0;
-    if (!force && next && Date.now() < next - REMINDER_MINUTES * 60000 - 60000) return; // rien à faire avant le prochain rappel
-    const res = tick(store.docs, { ...store.meta, reminderMinutes: REMINDER_MINUTES });
+    if (!force && next && Date.now() < next) return; // rien à jouer avant la prochaine journée
+    const res = tick(store.docs, store.meta);
     if (res.errors.length) console.warn("erreurs moteur:", res.errors.slice(0, 3));
     store.docs.league = res.league; // tick est synchrone : aucune écriture n'a pu arriver entre-temps
     store.meta = { ...res.meta, nextAt: res.nextSlotAt };
@@ -147,7 +146,7 @@ const server = http.createServer(async (req, res) => {
       else if (id === "league") store.docs.league = mergeLeague(store.docs.league, data);
       else store.docs[id] = data;
       persist();
-      if (id === "league" || id === "book") store.meta.nextAt = 0; // recalcul du prochain rappel
+      if (id === "league" || id === "book") store.meta.nextAt = 0; // recalcul de la prochaine journée
       return send(res, 200, { ok: true });
     }
     if (p === "/api/tick" && req.method === "POST") { await runTick(true); return send(res, 200, { ok: true, meta: store.meta }); }
