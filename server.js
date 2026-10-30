@@ -8,7 +8,10 @@ const crypto = require("crypto");
 const { tick, playedSlots, playedCup } = require("./engine");
 
 const PORT = +process.env.PORT || 3000;
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
+// Données persistantes : le volume Railway s'il est monté (même si DATA_DIR n'est pas renseigné), sinon DATA_DIR, sinon ./data (perdu à chaque déploiement)
+const VOLUME = process.env.RAILWAY_VOLUME_MOUNT_PATH || "";
+const DATA_DIR = VOLUME || process.env.DATA_DIR || path.join(__dirname, "data");
+const PERSISTENT = !!VOLUME || /^\/data\b/.test(process.env.DATA_DIR || "");
 const ACCESS_KEY = process.env.ACCESS_KEY || "";
 // Un code par personne : CODE_JULIEN=…, CODE_YOAN=… (ACCESS_KEY = code administrateur, peut tout modifier).
 const USERS = Object.entries(process.env).filter(([k, v]) => /^CODE_[A-Z0-9_]+$/.test(k) && v)
@@ -26,12 +29,14 @@ fs.mkdirSync(DATA_DIR, { recursive: true });
 function loadStore() {
   if (fs.existsSync(STATE_FILE)) return JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
   const seed = fs.existsSync(SEED_FILE) ? JSON.parse(fs.readFileSync(SEED_FILE, "utf8")) : { docs: {} };
-  const store = { docs: seed.docs || {}, meta: {} };
+  const store = { docs: seed.docs || {}, meta: { createdAt: new Date().toISOString() } };
   const L = store.docs.league;
   if (L) { store.meta.leagueId = L.id; store.meta.posted = playedSlots(L); store.meta.postedCup = playedCup(L); } // pas de rattrapage des journées déjà jouées
   return store;
 }
 let store = loadStore();
+const BOOTED = new Date().toISOString();
+if (!PERSISTENT) console.warn("⚠️  Aucun volume Railway détecté : les données seront perdues au prochain déploiement. Attache un volume sur /data.");
 function persist() {
   const tmp = STATE_FILE + ".tmp";
   fs.writeFileSync(tmp, JSON.stringify(store));
@@ -167,7 +172,7 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, "http://x");
     const p = url.pathname;
-    if (p === "/health") return send(res, 200, { ok: true });
+    if (p === "/health") return send(res, 200, { ok: true, volume: !!VOLUME, persistent: PERSISTENT, dataSince: store.meta.createdAt || null, bootedAt: BOOTED });
     if (req.method === "GET" && STATIC[p]) return sendFast(req, res, fileBuf(p.slice(1)), STATIC[p], "public, max-age=86400");
     if (req.method === "GET" && p === "/flags.js") return sendFast(req, res, fileBuf("flags.js"), "text/javascript; charset=utf-8", "public, max-age=31536000, immutable");
     if (p === "/logout") return send(res, 200, `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><body style="background:#0c1410"><script>
@@ -216,6 +221,17 @@ const server = http.createServer(async (req, res) => {
       if (id === "league" || id === "book") store.meta.nextAt = 0; // recalcul de la prochaine journée
       return send(res, 200, { ok: true });
     }
+    if (p === "/api/photo-link" && req.method === "POST") {
+      if (AUTH_ON && userOf(req) !== "admin") return send(res, 403, { error: "réservé à l'admin" });
+      const { name, url } = JSON.parse(await readBody(req, 1e4));
+      if (typeof name !== "string" || name.length > 80) return send(res, 400, { error: "nom invalide" });
+      const ph = { ...(store.docs.photos || {}) };
+      if (!url) delete ph[name];
+      else if (typeof url === "string" && (/^https:\/\/[^\s"'()<>]{4,600}$/.test(url) || /^\/photos\/[a-f0-9]{20}\.(webp|png|jpg)$/.test(url))) ph[name] = url;
+      else return send(res, 400, { error: "lien invalide" });
+      store.docs.photos = ph; persist();
+      return send(res, 200, { ok: true, photos: ph, persistent: PERSISTENT });
+    }
     if (p === "/api/photo" && req.method === "POST") {
       if (AUTH_ON && userOf(req) !== "admin") return send(res, 403, { error: "réservé à l'admin" });
       const { data } = JSON.parse(await readBody(req, 3e6));
@@ -249,4 +265,4 @@ const server = http.createServer(async (req, res) => {
     return send(res, 500, { error: "serveur" });
   }
 });
-server.listen(PORT, () => console.log(`Compo FC sur :${PORT} (TZ=${process.env.TZ}, données=${DATA_DIR}, slack=${SLACK_WEBHOOK_URL ? "oui" : "non"}, accès=${USERS.map(u => u.name).join("/") || "ouvert"})`));
+server.listen(PORT, () => console.log(`Compo FC sur :${PORT} (TZ=${process.env.TZ}, données=${DATA_DIR}${PERSISTENT ? " [volume]" : " [NON PERSISTANT]"}, slack=${SLACK_WEBHOOK_URL ? "oui" : "non"}, accès=${USERS.map(u => u.name).join("/") || "ouvert"})`));

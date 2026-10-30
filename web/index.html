@@ -2917,7 +2917,7 @@ function fixBook(b){if(!b||!Array.isArray(b.teams))return b;
     xi:Array.from({length:11},(_,i)=>(t.xi&&t.xi[i])||null),bench:Array.from({length:7},(_,i)=>(t.bench&&t.bench[i])||null),res:Array.from({length:3},(_,i)=>(t.res&&t.res[i])||null),resv:Array.isArray(t.resv)?t.resv.filter(n=>typeof n==="string"):null,owner:typeof t.owner==="string"?t.owner:undefined,ts:+t.ts||0,captain:typeof t.captain==="string"?t.captain:null,takers:(t.takers&&typeof t.takers==="object")?{...t.takers}:{},tactic:TACTICS[t.tactic]?t.tactic:"equilibre"}));return b}
 async function pullCloud(){
   const snap=await cloud.col.get();let remote=null;
-  for(const d of snap.docs){const v=d.data();if(d.id==="league"&&v&&v.schedule){const rl=JSON.parse(JSON.stringify(v));if(!league||!league.schedule||rl.id===league.id||!league.results||Object.keys(rl.results||{}).length>=Object.keys(league.results).length){league=rl;try{localStorage.setItem(LKEY,JSON.stringify(league))}catch(e){}}}else if(d.id==="matches"&&v&&Array.isArray(v.list)){const rm=JSON.parse(JSON.stringify(v));const seen=new Set(rm.list.map(x=>x.date));(matches.list||[]).forEach(x=>{if(!seen.has(x.date))rm.list.push(x)});matches={home:rm.home||matches.home,away:rm.away||matches.away,since:[rm.since,matches.since].filter(Boolean).sort()[0]||null,list:rm.list};try{localStorage.setItem(MKEY,JSON.stringify(matches))}catch(e){}}else if(d.id==="photos"&&v&&typeof v==="object"){photos={};Object.entries(v).forEach(([n,u])=>{if(typeof u==="string"&&BY[n])photos[n]=u})}else if(d.id==="book")remote=fixBook(JSON.parse(JSON.stringify(v)));else if(v&&v.name&&v.src)photos[v.name]=v.src}
+  for(const d of snap.docs){const v=d.data();if(d.id==="league"&&v&&v.schedule){const rl=JSON.parse(JSON.stringify(v));if(!league||!league.schedule||rl.id===league.id||!league.results||Object.keys(rl.results||{}).length>=Object.keys(league.results).length){league=rl;try{localStorage.setItem(LKEY,JSON.stringify(league))}catch(e){}}}else if(d.id==="matches"&&v&&Array.isArray(v.list)){const rm=JSON.parse(JSON.stringify(v));const seen=new Set(rm.list.map(x=>x.date));(matches.list||[]).forEach(x=>{if(!seen.has(x.date))rm.list.push(x)});matches={home:rm.home||matches.home,away:rm.away||matches.away,since:[rm.since,matches.since].filter(Boolean).sort()[0]||null,list:rm.list};try{localStorage.setItem(MKEY,JSON.stringify(matches))}catch(e){}}else if(d.id==="photos"&&v&&typeof v==="object"){photos={};Object.entries(v).forEach(([n,u])=>{if(typeof u==="string"&&BY[n])photos[n]=u})}else if(d.id==="book")remote=fixBook(JSON.parse(JSON.stringify(v)));}
   try{localStorage.setItem(PKEY,JSON.stringify(photos))}catch(e){}
   return remote;
 }
@@ -2934,7 +2934,7 @@ async function initCloud(){
       try{localStorage.setItem(BKEY,JSON.stringify(book))}catch(e){}
       setSync("Synchronisé sur ton compte",true);
     }else{await pushBook()}
-    for(const n of Object.keys(localPhotos)) if(!remote||true) pushPhoto(n);
+    // (les photos sont désormais gérées uniquement par le compte admin, côté serveur)
     if(target===null) render();
     leagueReady=true;runLeague();
     document.addEventListener("visibilitychange",async()=>{
@@ -4027,15 +4027,18 @@ document.getElementById("imgBtn").onclick=async e=>{
     sh.append(head);
     const list=el("div","ph-list");sh.append(list);
     const draft={...photos};let timer=0;const rows={};
+
     const shrink=file=>new Promise((res,rej)=>{const img=new Image(),url=URL.createObjectURL(file);img.onload=()=>{const H=Math.min(320,img.height),W=Math.round(img.width*H/img.height);const c=document.createElement("canvas");c.width=W;c.height=H;c.getContext("2d").drawImage(img,0,0,W,H);URL.revokeObjectURL(url);
       let d=c.toDataURL("image/webp",.86);if(!d.startsWith("data:image/webp"))d=c.toDataURL("image/png");res(d)};img.onerror=()=>{URL.revokeObjectURL(url);rej()};img.src=url});
     const upload=async(name,file)=>{const d=await shrink(file);const r=await fetch("/api/photo",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({data:d})});if(!r.ok)throw new Error(r.status);return (await r.json()).url};
     const norm=s=>s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
     // Enregistrement immédiat à chaque changement (plus de délai : un rafraîchissement juste après ne perd rien)
+    // Enregistrement joueur par joueur, immédiat : rien ne peut écraser les photos des autres joueurs
     let chain=Promise.resolve();
-    const push=()=>{const snap={...draft};photos={...snap};render();
-      chain=chain.then(()=>fetch("/api/docs/photos",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(snap),keepalive:true}))
-        .then(r=>{if(!r.ok)throw new Error(r.status);toast("Photo enregistrée ✓")}).catch(()=>toast("Échec de l'enregistrement, réessaie"));return chain};
+    const push=n=>{if(!n)return chain;const url=draft[n]||null;if(url)photos[n]=url;else delete photos[n];render();
+      chain=chain.then(()=>fetch("/api/photo-link",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name:n,url}),keepalive:true}))
+        .then(r=>r.ok?r.json():Promise.reject(r.status)).then(j=>{if(j.photos)photos={...j.photos};render();toast(j.persistent===false?"Enregistrée, mais ⚠️ pas de volume Railway : elle sera perdue au prochain déploiement":"Photo enregistrée ✓",j.persistent===false?7000:2500)})
+        .catch(()=>toast("Échec de l'enregistrement, réessaie"));return chain};
     book.teams.forEach(T=>{list.append(el("div","ph-team",T.name));
       [...new Set([...T.xi,...(T.bench||[]),...(T.res||[])].filter(n=>n&&BY[n]))].forEach(n=>{const p=BY[n],row=el("div","ph-row"),pv=el("div","ph-prev");
         if(draft[n])pv.style.backgroundImage=`url("${draft[n]}")`;
@@ -4043,11 +4046,11 @@ document.getElementById("imgBtn").onclick=async e=>{
         const inp=document.createElement("input");inp.type="url";inp.placeholder="https://…";inp.value=draft[n]||"";inp.setAttribute("aria-label",`Lien de la photo de ${p.name}`);
         const rm=el("button","btn small","Retirer");rm.type="button";rm.hidden=!draft[n];
         const fb=el("label","btn small","Fichier");const fi=document.createElement("input");fi.type="file";fi.accept="image/*";fi.hidden=true;fb.append(fi);
-        const setUrl=u=>{inp.value=u;if(u)draft[n]=u;else delete draft[n];pv.style.backgroundImage=u?`url("${u}")`:"";rm.hidden=!u;row.classList.remove("bad");push()};
+        const setUrl=u=>{inp.value=u;if(u)draft[n]=u;else delete draft[n];pv.style.backgroundImage=u?`url("${u}")`:"";rm.hidden=!u;row.classList.remove("bad");push(n)};
         rows[n]=setUrl;
         fi.onchange=async()=>{const f=fi.files[0];fi.value="";if(!f)return;fb.classList.add("busy");try{setUrl(await upload(n,f))}catch(e){toast("Image illisible ou trop lourde")}fb.classList.remove("busy")};
         const apply=()=>{const v=inp.value.trim();const okv=/^https:\/\/|^\/photos\//.test(v);row.classList.toggle("bad",!!v&&!okv);if(v&&!okv)return;
-          if(v)draft[n]=v;else delete draft[n];pv.style.backgroundImage=v?`url("${v}")`:"";rm.hidden=!v;push()};
+          if(v)draft[n]=v;else delete draft[n];pv.style.backgroundImage=v?`url("${v}")`:"";rm.hidden=!v;push(n)};
         inp.onchange=apply;inp.onkeydown=e=>{if(e.key==="Enter")inp.blur()};rm.onclick=()=>{inp.value="";apply()};
         row.append(pv,nm,inp,fb,rm);list.append(row)})});
     bin.onchange=async()=>{const files=[...bin.files];bin.value="";if(!files.length)return;const names=Object.keys(rows),ok=[],ko=[];
