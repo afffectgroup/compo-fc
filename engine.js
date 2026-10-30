@@ -58,20 +58,12 @@ const REPORT_JS = String.raw`
   }
   function results(D){
     const L=[];
+    const mine=ms=>(ms||[]).filter(m=>mineIds.has(m.hId)||mineIds.has(m.aId));
     const lr=league.results[D];
-    if(lr){
-      L.push("*⚽ Journée "+(D+1)+"/"+league.schedule.length+" · "+fmtSlot(D)+"*");
-      lr.filter(m=>mineIds.has(m.hId)||mineIds.has(m.aId)).forEach(m=>L.push(...matchLines(m,true)));
-      const others=lr.filter(m=>!mineIds.has(m.hId)&&!mineIds.has(m.aId));
-      if(others.length){L.push("_Autres matchs_");others.forEach(m=>L.push(...matchLines(m,false)))}
-    }
+    if(lr){L.push("*⚽ Journée "+(D+1)+"/"+league.schedule.length+" · "+fmtSlot(D)+"*");mine(lr).forEach(m=>L.push(...matchLines(m,false)))}
     if(league.cup)league.cup.rounds.forEach((R,i)=>{const res=league.cup.results[i];if(R.day!==D||!res)return;
-      L.push("","*🏆 Coupe · "+R.name+"*");res.forEach(m=>L.push(...matchLines(m,true)));});
-    if(lr){
-      const st=standings();
-      L.push("","*Classement*");
-      st.forEach((s,i)=>{if(mineIds.has(s.id))L.push((i+1)+"e · *"+s.name+"* · "+s.pts+" pts ("+s.g+"V "+s.n+"N "+s.p+"D, "+(s.bp-s.bc>=0?"+":"")+(s.bp-s.bc)+")")});
-    }
+      const my=mine(res);if(!my.length)return;
+      L.push((L.length?"\n":"")+"*🏆 Coupe · "+R.name+"*");my.forEach(m=>L.push(...matchLines(m,false)))});
     return L.join("\n");
   }
   function reminder(k){
@@ -125,14 +117,13 @@ function tick(docs, meta, now = new Date()) {
     const msgs = [];
     const sameLeague = !meta.leagueId || meta.leagueId === league.id;
     const posted = new Set(sameLeague ? (meta.posted || []) : []);
-    for (const D of playedSlots(league)) if (!posted.has(D)) { msgs.push({ kind: "results", slot: D, text: R.results(D) }); posted.add(D); }
+    for (const D of playedSlots(league)) if (!posted.has(D)) { const text = R.results(D); if (text) msgs.push({ kind: "results", slot: D, text }); posted.add(D); }
     let seasonEndPosted = meta.seasonEnd || null;
     if (w.eval("seasonDone()") && seasonEndPosted !== league.id) { msgs.push({ kind: "season", text: R.seasonEnd() }); seasonEndPosted = league.id; }
     // Pas de rappel séparé : le prochain match et les absents sont ajoutés au dernier message de résultats.
     const k = w.eval("nextDay()");
     const nextSlotAt = k >= 0 ? w.eval(`roundDate(${k}).getTime()`) : null;
-    const last = [...msgs].reverse().find(m => m.kind === "results");
-    if (last && k >= 0) last.text += "\n" + R.reminder(k);
+    
     return {
       league, book, msgs, errors: page.errors, nextSlotAt,
       meta: { ...meta, posted: [...posted], seasonEnd: seasonEndPosted, leagueId: league.id },

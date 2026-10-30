@@ -11,7 +11,7 @@ const PORT = +process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const ACCESS_KEY = process.env.ACCESS_KEY || "";
 const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL || "";
-const APP_URL = (process.env.APP_URL || process.env.RAILWAY_PUBLIC_DOMAIN && "https://" + process.env.RAILWAY_PUBLIC_DOMAIN || "").replace(/\/$/, "");
+const APP_URL = (process.env.APP_URL || process.env.RAILWAY_PUBLIC_DOMAIN && "https://" + process.env.RAILWAY_PUBLIC_DOMAIN || "https://compo-fc-production.up.railway.app").replace(/\/$/, "");
 const STATE_FILE = path.join(DATA_DIR, "state.json");
 const SEED_FILE = path.join(__dirname, "seed", "state.json");
 
@@ -67,7 +67,7 @@ function mergeLeague(cur, inc) {
 // ---------- Slack ----------
 async function slack(text) {
   if (!SLACK_WEBHOOK_URL) { console.log("[slack désactivé]\n" + text); return; }
-  const link = APP_URL ? `\n<${APP_URL}|Ouvrir Compo FC>` : "";
+  const link = APP_URL ? `\nLa suite sur ${APP_URL}/` : "";
   const r = await fetch(SLACK_WEBHOOK_URL, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text: text + link }) });
   if (!r.ok) throw new Error("Slack " + r.status + " " + (await r.text()));
 }
