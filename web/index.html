@@ -4031,14 +4031,14 @@ document.getElementById("imgBtn").onclick=async e=>{
 <style>
 /* ---- Finitions design ---- */
 /* Note et âge : petites étiquettes posées dans les coins de corner, sans toucher les joueurs */
-.pstat{position:absolute;top:3px;z-index:2;display:flex;align-items:baseline;gap:5px;padding:2px 7px;border-radius:6px;background:rgba(8,20,12,.55);
-  color:#eef3ee;pointer-events:none;line-height:1.2}
 .rdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#e0735a;margin-left:6px;vertical-align:5px}
 .rdot[hidden]{display:none}
 .tab2{position:relative}
-.pstat.left{left:3px}.pstat.right{right:3px;flex-direction:row-reverse}
-.pstat b{font-family:var(--display);font-weight:800;font-size:15px}
-.pstat span{font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:rgba(238,243,238,.78);white-space:nowrap}
+.pstat{position:absolute;top:calc(2% + 5px);z-index:2;display:grid;gap:1px;color:#eef3ee;pointer-events:none;line-height:1;
+  text-shadow:0 1px 3px rgba(0,0,0,.55)}
+.pstat.left{left:calc(2.95% + 6px)}.pstat.right{right:calc(2.95% + 6px);text-align:right}
+.pstat b{font-family:var(--display);font-weight:800;font-size:clamp(17px,2.8vw,22px)}
+.pstat span{font-size:clamp(7.5px,1.3vw,9px);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:rgba(238,243,238,.85);white-space:nowrap}
 .mc-sum{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .mine-card .mc-rank b{text-shadow:0 0 24px rgba(126,224,138,.35)}
 html{background:radial-gradient(1200px 520px at 50% -180px,rgba(126,224,138,.09),transparent 70%) no-repeat,var(--bg)}
