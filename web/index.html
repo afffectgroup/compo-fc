@@ -406,6 +406,7 @@ body.view-ai .team-name{pointer-events:none}
       <input id="teamName" class="team-name" value="Mon 4-3-3 possession" aria-label="Nom de l'équipe">
       <svg class="pen" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
     </div>
+    <div class="nextbar" id="nextBar" hidden></div>
     <div class="controls">
       <select id="formation" class="btn" aria-label="Formation"></select>
       <select id="tactic" class="btn" aria-label="Tactique"></select>
@@ -413,7 +414,6 @@ body.view-ai .team-name{pointer-events:none}
       <button class="btn plain danger" id="delTeam">Supprimer</button>
     </div>
   </header>
-  <div class="nextbar" id="nextBar" hidden></div>
 
   <div class="main">
     <div class="pitch" id="pitch">
@@ -4038,6 +4038,12 @@ document.getElementById("imgBtn").onclick=async e=>{
 
 <style>
 /* ---- Finitions design ---- */
+/* Prochain match dans l'en-tête, entre le nom et dispositif + tactique */
+#view-equipe header{align-items:center}
+#view-equipe header .name-wrap{flex:0 1 auto}
+#view-equipe header .nextbar{flex:1 1 280px;min-width:0;margin:0 4px;padding:8px 12px}
+#view-equipe header .nextbar[hidden]{display:none}
+@media (max-width:700px){#view-equipe header .nextbar{flex-basis:100%;margin:0}}
 /* Note et âge : petites étiquettes posées dans les coins de corner, sans toucher les joueurs */
 .rdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#e0735a;margin-left:6px;vertical-align:5px}
 .rdot[hidden]{display:none}
