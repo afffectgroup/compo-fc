@@ -61,9 +61,12 @@ const REPORT_JS = String.raw`
     const mine=ms=>(ms||[]).filter(m=>mineIds.has(m.hId)||mineIds.has(m.aId));
     const lr=league.results[D];
     if(lr){L.push("*⚽ Journée "+(D+1)+"/"+league.schedule.length+" · "+fmtSlot(D)+"*");mine(lr).forEach(m=>L.push(...matchLines(m,false)))}
-    if(league.cup)league.cup.rounds.forEach((R,i)=>{const res=league.cup.results[i];if(R.day!==D||!res)return;
-      const my=mine(res);if(!my.length)return;
-      L.push((L.length?"\n":"")+"*🏆 Coupe · "+R.name+"*");my.forEach(m=>L.push(...matchLines(m,false)))});
+    return L.join("\n");
+  }
+  function cupResults(i){
+    const R=league.cup.rounds[i],res=league.cup.results[i];if(!res)return "";
+    const my=res.filter(m=>mineIds.has(m.hId)||mineIds.has(m.aId));if(!my.length)return "";
+    const L=["*🏆 Coupe · "+R.name+" · "+fmtDate(dstr(cupDate(R.day)))+" "+CUP_HOUR+"h*"];my.forEach(m=>L.push(...matchLines(m,false)));
     return L.join("\n");
   }
   function reminder(k){
@@ -97,13 +100,14 @@ const REPORT_JS = String.raw`
     league.mine.forEach(mm=>{const i=st.findIndex(s=>s.id===mm.id);if(i>=0)L.push(st[i].name+" : "+(i+1)+"e")});
     return L.join("\n");
   }
-  return {results,reminder,seasonEnd};
+  return {results,cupResults,reminder,seasonEnd};
 })()`;
 
 function playedSlots(league) {
-  const s = new Set(Object.keys(league.results || {}).map(Number));
-  if (league.cup) league.cup.rounds.forEach((R, i) => { if (league.cup.results && league.cup.results[i]) s.add(R.day); });
-  return [...s].sort((a, b) => a - b);
+  return Object.keys(league.results || {}).map(Number).sort((a, b) => a - b);
+}
+function playedCup(league) {
+  return league.cup ? league.cup.rounds.map((R, i) => i).filter(i => league.cup.results && league.cup.results[i]) : [];
 }
 
 // Joue ce qui doit l'être et renvoie le nouvel état + les messages à poster.
@@ -118,17 +122,19 @@ function tick(docs, meta, now = new Date()) {
     const sameLeague = !meta.leagueId || meta.leagueId === league.id;
     const posted = new Set(sameLeague ? (meta.posted || []) : []);
     for (const D of playedSlots(league)) if (!posted.has(D)) { const text = R.results(D); if (text) msgs.push({ kind: "results", slot: D, text }); posted.add(D); }
+    const postedCup = new Set(sameLeague ? (meta.postedCup || []) : []);
+    for (const i of playedCup(league)) if (!postedCup.has(i)) { const text = R.cupResults(i); if (text) msgs.push({ kind: "cup", round: i, text }); postedCup.add(i); }
     let seasonEndPosted = meta.seasonEnd || null;
     if (w.eval("seasonDone()") && seasonEndPosted !== league.id) { msgs.push({ kind: "season", text: R.seasonEnd() }); seasonEndPosted = league.id; }
     // Pas de rappel séparé : le prochain match et les absents sont ajoutés au dernier message de résultats.
     const k = w.eval("nextDay()");
-    const nextSlotAt = k >= 0 ? w.eval(`roundDate(${k}).getTime()`) : null;
+    const nextSlotAt = w.eval("nextEventAt()");
     
     return {
       league, book, msgs, errors: page.errors, nextSlotAt,
-      meta: { ...meta, posted: [...posted], seasonEnd: seasonEndPosted, leagueId: league.id },
+      meta: { ...meta, posted: [...posted], postedCup: [...postedCup], seasonEnd: seasonEndPosted, leagueId: league.id },
     };
   } finally { page.close(); }
 }
 
-module.exports = { tick, openPage, playedSlots };
+module.exports = { tick, openPage, playedSlots, playedCup };

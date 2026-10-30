@@ -5,7 +5,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const { tick, playedSlots } = require("./engine");
+const { tick, playedSlots, playedCup } = require("./engine");
 
 const PORT = +process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
@@ -27,7 +27,7 @@ function loadStore() {
   const seed = fs.existsSync(SEED_FILE) ? JSON.parse(fs.readFileSync(SEED_FILE, "utf8")) : { docs: {} };
   const store = { docs: seed.docs || {}, meta: {} };
   const L = store.docs.league;
-  if (L) { store.meta.leagueId = L.id; store.meta.posted = playedSlots(L); } // pas de rattrapage des journées déjà jouées
+  if (L) { store.meta.leagueId = L.id; store.meta.posted = playedSlots(L); store.meta.postedCup = playedCup(L); } // pas de rattrapage des journées déjà jouées
   return store;
 }
 let store = loadStore();
