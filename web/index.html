@@ -3934,6 +3934,14 @@ document.getElementById("imgBtn").onclick=async e=>{
   .main>aside{position:sticky;top:76px;max-height:calc(100vh - 90px);overflow:auto;scrollbar-width:thin}
 }
 @media (max-width:700px){
+  /* Cartes du championnat : le texte passe à la ligne au lieu d'être coupé */
+  .mc-row{flex-wrap:wrap;row-gap:6px}
+  .mc-row>span{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;min-width:0}
+  .mc-row .mc-cd{margin-left:auto}
+  /* Tableau de coupe : les tours les uns sous les autres */
+  .bracket{grid-template-columns:1fr!important;overflow:visible}
+  .bcol{gap:8px}
+  .bcol h4{margin-top:6px}
   .appbar-in .views{display:none}
   .theme-btn{margin-left:auto;padding:0 10px}.theme-btn span{display:none}
   .me{margin-left:8px}
