@@ -70,7 +70,11 @@ select.btn{padding-right:8px}
   background:rgba(8,16,11,.78);padding:1px 6px;border-radius:4px;max-width:120%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .empty{width:100%;aspect-ratio:3/4;border:2px dashed var(--chalk);border-radius:10px;display:grid;place-items:center;
   font-family:var(--display);font-weight:700;color:var(--fg);background:rgba(0,0,0,.18);font-size:15px}
-.slot[data-player]{touch-action:none;cursor:grab}
+.slot[data-player]{touch-action:manipulation;cursor:grab;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.slot[data-player] .card{-webkit-user-select:none;user-select:none}
+.slot.lifting .card{transform:scale(1.06);box-shadow:0 0 0 3px var(--accent),0 10px 24px rgba(0,0,0,.5);transition:transform .12s}
+.ghost.touch{transform:translate(-50%,-115%) rotate(-3deg) scale(1.08)}
+body.dragging-on{-webkit-user-select:none;user-select:none;cursor:grabbing}
 .slot.dragging{opacity:.35}
 .slot.drop-on .card,.slot.drop-on .empty{outline:3px solid var(--accent);outline-offset:2px}
 .ghost{position:fixed;z-index:40;transform:translate(-50%,-50%) rotate(-3deg);pointer-events:none;box-shadow:0 12px 28px rgba(0,0,0,.5)}
@@ -2983,44 +2987,60 @@ function cardFor(p,role){
   return c;
 }
 let drag=null, dragJustEnded=false;
+// Glisser-déposer. Souris : la carte part dès qu'on bouge. Doigt : appui long (~0,25 s) pour saisir la carte,
+// sinon le geste fait défiler la page normalement.
 document.addEventListener("pointerdown",e=>{
-  if(RO())return;
+  if(RO()||drag)return;
   const s=e.target.closest&&e.target.closest(".slot[data-player]");if(!s||e.button>0)return;
-  drag={s,x:e.clientX,y:e.clientY,ghost:null,over:null,id:e.pointerId};
+  drag={s,x:e.clientX,y:e.clientY,cx:e.clientX,cy:e.clientY,ghost:null,over:null,id:e.pointerId,touch:e.pointerType!=="mouse",active:e.pointerType==="mouse",timer:0,raf:0,arm:{up:false,down:false}};
+  if(drag.touch){const d=drag;d.timer=setTimeout(()=>{if(drag!==d)return;d.active=true;s.classList.add("lifting");if(navigator.vibrate)try{navigator.vibrate(12)}catch(_){}
+    startGhost();},250)}
 });
+function startGhost(){const d=drag;if(!d||d.ghost)return;
+  const card=d.s.querySelector(".card"),r=card.getBoundingClientRect();
+  const g=card.cloneNode(true);g.classList.add("ghost");if(d.touch)g.classList.add("touch");g.style.width=r.width+"px";
+  g.style.left=d.cx+"px";g.style.top=d.cy+"px";document.body.append(g);d.ghost=g;d.s.classList.add("dragging");d.s.classList.remove("lifting");
+  document.body.classList.add("dragging-on");
+  // la zone de défilement auto ne s'arme qu'une fois la carte sortie de la zone (évite un défilement immédiat)
+  const z=edges();d.arm.up=d.cy>z.top+z.zone;d.arm.down=d.cy<z.bot-z.zone;
+  if(!d.raf)d.raf=requestAnimationFrame(dragScroll)}
 document.addEventListener("pointermove",e=>{
   if(!drag||e.pointerId!==drag.id)return;
-  if(!drag.ghost){if(Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<8)return;
-    const card=drag.s.querySelector(".card"),r=card.getBoundingClientRect();
-    const g=card.cloneNode(true);g.classList.add("ghost");g.style.width=r.width+"px";document.body.append(g);drag.ghost=g;drag.s.classList.add("dragging")}
-  e.preventDefault();
   drag.cx=e.clientX;drag.cy=e.clientY;
+  if(!drag.active){ // doigt : bouger avant l'appui long = défilement de la page
+    if(Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>10){clearTimeout(drag.timer);drag.s.classList.remove("lifting");drag=null}
+    return}
+  if(!drag.ghost){if(Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<6)return;startGhost()}
+  e.preventDefault();
   drag.ghost.style.left=e.clientX+"px";drag.ghost.style.top=e.clientY+"px";
+  const z=edges();if(drag.cy>z.top+z.zone)drag.arm.up=true;if(drag.cy<z.bot-z.zone)drag.arm.down=true;
   dragOver();
-  if(!drag.raf)drag.raf=requestAnimationFrame(dragScroll);
 },{passive:false});
+// Une fois la carte saisie au doigt, on bloque le défilement natif (le défilement auto prend le relais)
+document.addEventListener("touchmove",e=>{if(drag&&drag.active)e.preventDefault()},{passive:false});
+document.addEventListener("contextmenu",e=>{if(e.target.closest&&e.target.closest(".slot[data-player]"))e.preventDefault()});
+function edges(){const vh=window.innerHeight,ab=document.querySelector(".appbar"),bn=document.querySelector(".bottomnav");
+  const top=ab?Math.max(0,ab.getBoundingClientRect().bottom):0,bot=bn&&getComputedStyle(bn).display!=="none"?bn.getBoundingClientRect().top:vh;
+  return {top,bot,zone:Math.min(80,vh*.12)}}
 function dragOver(){if(!drag||!drag.ghost)return;
   drag.ghost.hidden=true;const under=document.elementFromPoint(drag.cx,drag.cy);drag.ghost.hidden=false;
   const t=under&&under.closest(".slot[data-kind]");
   if(drag.over&&drag.over!==t)drag.over.classList.remove("drop-on");
   if(t&&t!==drag.s){t.classList.add("drop-on");drag.over=t}else drag.over=null}
 // Défilement automatique quand la carte approche du haut ou du bas de l'écran
-function dragScroll(){if(!drag||!drag.ghost){if(drag)drag.raf=0;return}
-  const vh=window.innerHeight,zone=Math.min(110,vh*.16);
-  const topEdge=(document.querySelector(".appbar")||{getBoundingClientRect:()=>({bottom:0})}).getBoundingClientRect().bottom;
-  const bn=document.querySelector(".bottomnav"),botEdge=bn&&getComputedStyle(bn).display!=="none"?bn.getBoundingClientRect().top:vh;
-  let v=0;
-  if(drag.cy<topEdge+zone)v=-Math.ceil(18*Math.min(1,(topEdge+zone-drag.cy)/zone));
-  else if(drag.cy>botEdge-zone)v=Math.ceil(18*Math.min(1,(drag.cy-(botEdge-zone))/zone));
+function dragScroll(){const d=drag;if(!d||!d.ghost){if(d)d.raf=0;return}
+  const z=edges();let v=0;
+  if(d.arm.up&&d.cy<z.top+z.zone)v=-(3+Math.round(14*Math.min(1,(z.top+z.zone-d.cy)/z.zone)));
+  else if(d.arm.down&&d.cy>z.bot-z.zone)v=3+Math.round(14*Math.min(1,(d.cy-(z.bot-z.zone))/z.zone));
   if(v){const y0=window.scrollY;window.scrollBy(0,v);if(window.scrollY!==y0)dragOver()}
-  drag.raf=requestAnimationFrame(dragScroll)}
+  d.raf=requestAnimationFrame(dragScroll)}
 function endDrag(e){
   if(!drag||e.pointerId!==drag.id)return;const d=drag;drag=null;
-  if(d.raf)cancelAnimationFrame(d.raf);
+  clearTimeout(d.timer);if(d.raf)cancelAnimationFrame(d.raf);d.s.classList.remove("lifting");document.body.classList.remove("dragging-on");
   if(!d.ghost)return;
-  d.ghost.remove();d.s.classList.remove("dragging");dragJustEnded=true;setTimeout(()=>dragJustEnded=false,50);
+  d.ghost.remove();d.s.classList.remove("dragging");dragJustEnded=true;setTimeout(()=>dragJustEnded=false,350);
+  if(d.over)d.over.classList.remove("drop-on");
   if(e.type!=="pointerup"||!d.over)return;
-  d.over.classList.remove("drop-on");
   const a=[d.s.dataset.kind,+d.s.dataset.i],b=[d.over.dataset.kind,+d.over.dataset.i];
   const va=state[a[0]][a[1]],vb=state[b[0]][b[1]];
   state[a[0]][a[1]]=vb||null;state[b[0]][b[1]]=va;render();
@@ -3777,7 +3797,7 @@ function renderAIGrid(){const g=document.getElementById("aiGrid");if(!g)return;g
     const top=el("div","ai-top");top.append(el("b",null,t.name),el("span","ai-ovr",avg));
     b.append(top,el("span","ai-meta",`${t.formation} · ${pos}${pos===1?"er":"e"} du classement`),el("span","ai-stars",best));g.append(b)})}
 
-setInterval(async()=>{if(document.visibilityState!=="visible")return;
+setInterval(async()=>{if(document.visibilityState!=="visible"||drag)return;
   if(cloud&&!pushTimer&&!target){try{const r=await pullCloud();if(r&&Array.isArray(r.teams)&&r.teams.length){const cur=state&&state.id;book={teams:r.teams,cur:Math.max(0,r.teams.findIndex(t=>t.id===cur)),deleted:[]};state=book.teams[book.cur];render()}}catch(e){}}
   runLeague()},30000);
 setTimeout(()=>{if(!leagueReady){leagueReady=true;runLeague()}},12000);
