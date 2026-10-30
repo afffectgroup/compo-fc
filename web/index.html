@@ -373,8 +373,16 @@ body.view-ai .team-name{pointer-events:none}
       <a href="#equipe" data-v="equipe" class="on">Mes équipes</a>
       <a href="#championnat" data-v="championnat">Championnat<i class="dot" id="lgDot" hidden></i></a>
     </nav>
+    <div class="me" id="meBox" hidden>
+      <button type="button" class="me-btn" id="meBtn" aria-haspopup="true" aria-expanded="false"><span class="me-av" id="meAv"></span><span class="me-nm" id="meNm"></span></button>
+      <div class="me-menu" id="meMenu" hidden><a href="/logout">Se déconnecter</a></div>
+    </div>
   </div>
 </div>
+<nav class="views bottomnav" aria-label="Sections">
+  <a href="#equipe" data-v="equipe" class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3 3 6l2 5 2-1v11h10V10l2 1 2-5-5-3c-.5 1.7-2.1 3-4 3S8.5 4.7 8 3z"/></svg><span>Mes équipes</span></a>
+  <a href="#championnat" data-v="championnat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v4a5 5 0 0 1-10 0V4zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3M12 13v4M8 21h8M9 17h6v4H9z"/></svg><span>Championnat</span><i class="dot" id="lgDot2" hidden></i></a>
+</nav>
 <div class="wrap">
  <div id="view-equipe" class="view">
   <nav class="teams" aria-label="Mes équipes">
@@ -394,10 +402,11 @@ body.view-ai .team-name{pointer-events:none}
     <div class="controls">
       <select id="formation" class="btn" aria-label="Formation"></select>
       <select id="tactic" class="btn" aria-label="Tactique"></select>
-      <button class="btn primary" id="imgBtn" hidden>Image</button>
+      <button class="btn" id="imgBtn" hidden title="Exporter la compo en image"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span class="hide-s">Image</span></button>
       <button class="btn plain danger" id="delTeam">Supprimer</button>
     </div>
   </header>
+  <div class="nextbar" id="nextBar" hidden></div>
 
   <div class="main">
     <div class="pitch" id="pitch">
@@ -3822,6 +3831,95 @@ document.getElementById("imgBtn").onclick=async e=>{
   catch(err){if(err&&err.code==="declined"){}else if(err&&err.code==="rate_limited")toast("Une fenêtre d'enregistrement est déjà ouverte");else toast("Impossible de créer l'image ici")}
   finally{b.disabled=false;b.textContent=t}
 };
+</script>
+
+<style>
+/* ---- Couche UI de la version hébergée ---- */
+.me{position:relative;margin-left:8px}
+.me-btn{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px 12px 3px 3px;font-weight:600;font-size:14px}
+.me-btn:hover{border-color:var(--accent)}
+.me-av{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:#08210f;font-family:var(--display);font-weight:800;font-size:15px}
+.me-menu{position:absolute;right:0;top:calc(100% + 6px);background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:4px;min-width:170px;box-shadow:0 12px 30px rgba(0,0,0,.45);z-index:20}
+.me-menu a{display:block;padding:9px 12px;border-radius:7px;color:var(--fg);text-decoration:none;font-size:14px}
+.me-menu a:hover{background:var(--panel)}
+.appbar-in .views{margin-left:auto}
+.tab.mine::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:currentColor;margin-right:7px;vertical-align:1px;opacity:.8}
+.nextbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:14px;color:var(--muted)}
+.nextbar b{color:var(--fg);font-weight:600}
+.nextbar .lab{font-family:var(--display);font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:13px;color:var(--accent)}
+.nextbar .cd{margin-left:auto;background:rgba(126,224,138,.12);color:var(--accent);border-radius:999px;padding:2px 10px;font-weight:600;font-size:13px;white-space:nowrap}
+.nextbar .cup{color:var(--gold-a)}
+#imgBtn{display:inline-flex;align-items:center;gap:6px}
+#imgBtn[hidden]{display:none}
+.ico{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round}
+#leagueBox .seg{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
+#leagueBox .seg::-webkit-scrollbar{display:none}
+#leagueBox .seg button{flex:none;scroll-snap-align:start}
+.bottomnav{display:none}
+@media (max-width:700px){
+  .appbar-in .views{display:none}
+  .me{margin-left:auto}
+  .me-nm{display:none}.me-btn{padding:3px}
+  .bottomnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:25;gap:0;border-radius:0;border:0;border-top:1px solid var(--line);
+    background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
+  .bottomnav a{flex:1;display:grid;justify-items:center;gap:2px;padding:6px 4px;border-radius:12px;font-size:12px;color:var(--muted)}
+  .bottomnav a.on{background:transparent;color:var(--accent)}
+  .bottomnav a.on svg{background:rgba(126,224,138,.14)}
+  .bottomnav svg{width:44px;height:28px;padding:3px 10px;border-radius:999px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round}
+  .bottomnav .dot{top:4px;right:calc(50% - 26px)}
+  body{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+  header .controls{width:100%;display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr) auto}
+  header .controls #delTeam{grid-column:1/-1;justify-self:end;padding:2px 4px;font-size:13px}
+  header .controls select{min-width:0}
+  .nextbar .cd{margin-left:0}
+}
+</style>
+
+<script>
+// ---- Couche UI de la version hébergée ----
+(function(){
+  const ME=window.ME&&window.ME!=="admin"?window.ME:null;
+  if(window.ME){const box=document.getElementById("meBox");box.hidden=false;document.getElementById("meAv").textContent=(window.ME[0]||"?").toUpperCase();document.getElementById("meNm").textContent=window.ME==="admin"?"Admin":window.ME;
+    const b=document.getElementById("meBtn"),m=document.getElementById("meMenu");
+    b.onclick=e=>{e.stopPropagation();m.hidden=!m.hidden;b.setAttribute("aria-expanded",!m.hidden)};
+    document.addEventListener("click",()=>{if(!m.hidden){m.hidden=true;b.setAttribute("aria-expanded","false")}})}
+  // Pastille rouge aussi dans la barre du bas
+  const d1=document.getElementById("lgDot"),d2=document.getElementById("lgDot2");
+  if(d1&&d2)new MutationObserver(()=>{d2.hidden=d1.hidden}).observe(d1,{attributes:true});
+  // Mon équipe repérée dans les onglets
+  const tabs=document.getElementById("tabs");
+  const markTabs=()=>{if(!ME||typeof book==="undefined")return;tabs.querySelectorAll(".tab").forEach((t,i)=>{const T=book.teams[i];const mine=!!T&&T.owner===ME;if(t.classList.contains("mine")!==mine)t.classList.toggle("mine",mine)})};
+  new MutationObserver(markTabs).observe(tabs,{childList:true});
+  // Prochain match de l'équipe affichée
+  function nextBar(){
+    const bar=document.getElementById("nextBar");if(!bar)return;
+    try{
+      if(typeof league==="undefined"||!league||!league.schedule||!state||!state.id){bar.hidden=true;return}
+      const id=state.id,isLg=[...league.mine.map(m=>m.id),...league.ai.map(t=>t.id)].includes(id);
+      const ab=document.getElementById("absBanner");
+      if(!isLg||(ab&&!ab.hidden)){bar.hidden=true;return}
+      const k=nextDay();if(k<0){bar.hidden=true;return}
+      const fx=[];
+      if(league.schedule[k]&&!league.results[k])league.schedule[k].forEach(([h,a])=>{if(h===id)fx.push(["",`contre <b>${lgTeam(a).name}</b> (dom.)`]);if(a===id)fx.push(["",`à <b>${lgTeam(h).name}</b> (ext.)`])});
+      if(league.cup)league.cup.rounds.forEach((R,i)=>{if(R.day!==k||league.cup.results[i])return;ensureCupTies(i);(R.ties||[]).forEach(([h,a])=>{if(h===id||a===id)fx.push(["cup",`Coupe · ${R.name} contre <b>${lgTeam(h===id?a:h).name}</b>`])})});
+      if(!fx.length){bar.hidden=true;return}
+      const d=roundDate(k),today=dstr(new Date()),tm=new Date();tm.setDate(tm.getDate()+1);
+      const when=dstr(d)===today?"aujourd'hui":dstr(d)===dstr(tm)?"demain":fmtDate(dstr(d));
+      bar.innerHTML=`<span class="lab">${league.schedule[k]&&!league.results[k]?"J"+(k+1):"Coupe"}</span>`+fx.map(([c,t])=>`<span class="${c}">${t}</span>`).join("<span>·</span>")+`<span>${when} à ${slotHour(k)}h</span><span class="cd">${countdown(d)}</span>`;
+      bar.hidden=false;
+    }catch(e){bar.hidden=true}
+  }
+  const _render=render;render=function(){const r=_render.apply(this,arguments);try{markTabs();nextBar()}catch(e){}return r};
+  // Au premier chargement, ouvrir sa propre équipe
+  let opened=false;
+  const openMine=()=>{if(opened||!ME||typeof book==="undefined"||!leagueReady)return;opened=true;const i=book.teams.findIndex(t=>t.owner===ME);if(i>=0&&i!==book.cur&&viewAI==null)switchTeam(i)};
+  const iv=setInterval(()=>{openMine();if(opened)clearInterval(iv)},150);setTimeout(()=>clearInterval(iv),15000);
+  // Onglet de championnat actif toujours visible
+  const lb=document.getElementById("leagueBox");
+  if(lb)new MutationObserver(()=>{const s=lb.querySelector(".seg"),on=s&&s.querySelector("button.on");if(on&&s.scrollWidth>s.clientWidth){const x=on.offsetLeft-s.offsetLeft-12;if(x<s.scrollLeft||on.offsetLeft-s.offsetLeft+on.offsetWidth>s.scrollLeft+s.clientWidth)s.scrollLeft=Math.max(0,x)}}).observe(lb,{childList:true,subtree:true});
+  try{render()}catch(e){}
+})();
 </script>
 </body>
 </html>

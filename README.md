@@ -30,7 +30,7 @@ api.slack.com/apps → *Create New App* → *From scratch* → **Incoming Webhoo
 
 ## Structure
 
-- `web/index.html` : l'app (générée depuis la page d'origine par `tools/build_page.py`).
+- `web/index.html` : l'app. C'est désormais le fichier source à modifier directement (`tools/build_page.py` a servi une fois, pour la migration depuis claude.ai).
 - `web/shim.js` : branche l'app sur l'API du serveur.
 - `engine.js` : exécute le moteur de l'app côté serveur (jsdom) et rédige les messages Slack.
 - `server.js` : serveur HTTP, stockage JSON (`DATA_DIR/state.json`), fusion des modifications, boucle de jeu.

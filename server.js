@@ -143,6 +143,7 @@ const server = http.createServer(async (req, res) => {
     const p = url.pathname;
     if (p === "/health") return send(res, 200, { ok: true });
     if (req.method === "GET" && STATIC[p]) return send(res, 200, fs.readFileSync(path.join(WEB, p.slice(1))), STATIC[p], { "cache-control": "public, max-age=86400" });
+    if (p === "/logout") return send(res, 303, "", "text/plain", { location: "/login", "set-cookie": "k=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0" });
     if (p === "/login") {
       if (req.method === "POST") {
         const k = new URLSearchParams(await readBody(req, 1e4)).get("k") || "";
