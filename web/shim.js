@@ -1,7 +1,8 @@
 // Remplace l'API claude.ai (base de données, utilisateur, téléchargements) par l'API du serveur.
 (function () {
   // Qui est connecté (Julien, Yoan…) : chacun ne modifie que son équipe.
-  try { const x = new XMLHttpRequest(); x.open("GET", "/api/me", false); x.send(); if (x.status === 200) window.ME = JSON.parse(x.responseText).user; } catch (e) {}
+  // ME est normalement inscrit dans la page par le serveur ; sinon on le demande (ancienne version en cache)
+  if (window.ME === undefined) { try { const x = new XMLHttpRequest(); x.open("GET", "/api/me", false); x.send(); if (x.status === 200) window.ME = JSON.parse(x.responseText).user; } catch (e) {} }
   // Thème : suit le système par défaut, modifiable (Auto / Clair / Sombre) à côté du profil, mémorisé sur l'appareil.
   const TKEY = "compo-fc-theme-" + (window.ME || "x");
   const mq = window.matchMedia ? matchMedia("(prefers-color-scheme: dark)") : null;

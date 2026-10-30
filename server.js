@@ -121,6 +121,31 @@ const userOfCode = k => { if (!k) return null; const u = USERS.find(u => same(k,
 const okKey = k => !!userOfCode(k);
 const userOf = req => AUTH_ON ? userOfCode(decodeURIComponent(cookieOf(req).k || "")) : "admin";
 const authed = req => !!userOf(req);
+// ---------- Envoi compressé (brotli/gzip) + ETag ----------
+const zlib = require("zlib");
+const ZCACHE = new Map();
+function encode(buf, enc) {
+  const key = enc + ":" + crypto.createHash("sha1").update(buf).digest("base64");
+  if (ZCACHE.has(key)) return ZCACHE.get(key);
+  const out = enc === "br" ? zlib.brotliCompressSync(buf, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: buf.length > 200000 ? 9 : 11 } }) : zlib.gzipSync(buf, { level: 9 });
+  if (ZCACHE.size > 200) ZCACHE.clear();
+  ZCACHE.set(key, out);
+  return out;
+}
+function sendFast(req, res, body, type, cache) {
+  const buf = Buffer.isBuffer(body) ? body : Buffer.from(typeof body === "string" ? body : JSON.stringify(body));
+  const etag = '"' + crypto.createHash("sha1").update(buf).digest("base64").slice(0, 20) + '"';
+  const headers = { "content-type": type, "cache-control": cache, etag, vary: "Accept-Encoding, Cookie" };
+  if (req.headers["if-none-match"] === etag) { res.writeHead(304, headers); return res.end(); }
+  const ae = req.headers["accept-encoding"] || "";
+  const enc = buf.length < 1024 ? null : /\bbr\b/.test(ae) ? "br" : /\bgzip\b/.test(ae) ? "gzip" : null;
+  const out = enc ? encode(buf, enc) : buf;
+  if (enc) headers["content-encoding"] = enc;
+  res.writeHead(200, headers);
+  res.end(out);
+}
+const FILES = new Map();
+const fileBuf = f => { if (!FILES.has(f)) FILES.set(f, fs.readFileSync(path.join(WEB, f))); return FILES.get(f); };
 function send(res, code, body, type = "application/json; charset=utf-8", extra = {}) {
   res.writeHead(code, { "content-type": type, "cache-control": "no-store", ...extra });
   res.end(typeof body === "string" || Buffer.isBuffer(body) ? body : JSON.stringify(body));
@@ -142,8 +167,11 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://x");
     const p = url.pathname;
     if (p === "/health") return send(res, 200, { ok: true });
-    if (req.method === "GET" && STATIC[p]) return send(res, 200, fs.readFileSync(path.join(WEB, p.slice(1))), STATIC[p], { "cache-control": "public, max-age=86400" });
-    if (p === "/logout") return send(res, 303, "", "text/plain", { location: "/login", "set-cookie": "k=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0" });
+    if (req.method === "GET" && STATIC[p]) return sendFast(req, res, fileBuf(p.slice(1)), STATIC[p], "public, max-age=86400");
+    if (req.method === "GET" && p === "/flags.js") return sendFast(req, res, fileBuf("flags.js"), "text/javascript; charset=utf-8", "public, max-age=31536000, immutable");
+    if (p === "/logout") return send(res, 200, `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><body style="background:#0c1410"><script>
+(async()=>{try{for(const k of await caches.keys())await caches.delete(k)}catch(e){}location.replace("/login")})()</script>`, "text/html; charset=utf-8", { "set-cookie": "k=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0" });
+    if (p === "/login" && req.method === "GET") return sendFast(req, res, LOGIN, "text/html; charset=utf-8", "no-cache");
     if (p === "/login") {
       if (req.method === "POST") {
         const k = new URLSearchParams(await readBody(req, 1e4)).get("k") || "";
@@ -167,7 +195,7 @@ const server = http.createServer(async (req, res) => {
         }
         return { id, data };
       });
-      return send(res, 200, { docs });
+      return sendFast(req, res, JSON.stringify({ docs }), "application/json; charset=utf-8", "no-store");
     }
     const m = p.match(/^\/api\/docs\/([A-Za-z0-9_\-.]{1,80})$/);
     if (m && req.method === "PUT") {
@@ -181,10 +209,13 @@ const server = http.createServer(async (req, res) => {
     }
     if (p === "/api/tick" && req.method === "POST") { await runTick(true); return send(res, 200, { ok: true, meta: store.meta }); }
     if (p === "/api/test-slack" && req.method === "POST") { await slack("✅ Compo FC est bien connecté à ce canal."); return send(res, 200, { ok: true }); }
-    if (req.method === "GET" && (p === "/" || p === "/index.html")) return send(res, 200, fs.readFileSync(path.join(WEB, "index.html")), "text/html; charset=utf-8");
-    if (req.method === "GET" && STATIC[p]) return send(res, 200, fs.readFileSync(path.join(WEB, p.slice(1))), STATIC[p], { "cache-control": "public, max-age=86400" });
-    if (req.method === "GET" && p === "/sw.js") return send(res, 200, fs.readFileSync(path.join(WEB, "sw.js")), "text/javascript; charset=utf-8", { "service-worker-allowed": "/" });
-    if (req.method === "GET" && p === "/shim.js") return send(res, 200, fs.readFileSync(path.join(WEB, "shim.js")), "text/javascript; charset=utf-8");
+    if (req.method === "GET" && (p === "/" || p === "/index.html")) {
+      // L'utilisateur est inscrit directement dans la page : pas d'aller-retour réseau au démarrage
+      const html = fileBuf("index.html").toString("utf8").replace("<script>window.SERVER_SIM=true</script>", `<script>window.SERVER_SIM=true;window.ME=${JSON.stringify(userOf(req))}</script>`);
+      return sendFast(req, res, html, "text/html; charset=utf-8", "no-cache");
+    }
+    if (req.method === "GET" && p === "/sw.js") { res.setHeader("service-worker-allowed", "/"); return sendFast(req, res, fileBuf("sw.js"), "text/javascript; charset=utf-8", "no-cache"); }
+    if (req.method === "GET" && p === "/shim.js") return sendFast(req, res, fileBuf("shim.js"), "text/javascript; charset=utf-8", "no-cache");
     return send(res, 404, { error: "introuvable" });
   } catch (e) {
     console.error(e);
