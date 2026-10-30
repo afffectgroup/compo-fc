@@ -2,11 +2,24 @@
 (function () {
   // Qui est connecté (Julien, Yoan…) : chacun ne modifie que son équipe.
   try { const x = new XMLHttpRequest(); x.open("GET", "/api/me", false); x.send(); if (x.status === 200) window.ME = JSON.parse(x.responseText).user; } catch (e) {}
-  // Thème par personne : clair pour Julien, sombre pour les autres.
-  const THEMES = { Julien: "light" };
-  const theme = THEMES[window.ME] || "dark";
-  document.documentElement.dataset.theme = theme;
-  if (theme === "light") document.addEventListener("DOMContentLoaded", () => { const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = "#f2f5f1"; const sb = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]'); if (sb) sb.content = "default"; });
+  // Thème : suit le système par défaut, modifiable (Auto / Clair / Sombre) à côté du profil, mémorisé sur l'appareil.
+  const TKEY = "compo-fc-theme-" + (window.ME || "x");
+  const mq = window.matchMedia ? matchMedia("(prefers-color-scheme: dark)") : null;
+  const getPref = () => { try { return localStorage.getItem(TKEY) || "auto"; } catch (e) { return "auto"; } };
+  function applyTheme() {
+    const pref = getPref();
+    const theme = pref === "auto" ? (mq && !mq.matches ? "light" : "dark") : pref;
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.dataset.themePref = pref;
+    const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = theme === "light" ? "#f2f5f1" : "#0c1410";
+    const sb = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]'); if (sb) sb.content = theme === "light" ? "default" : "black-translucent";
+    document.dispatchEvent(new CustomEvent("themechange", { detail: { pref, theme } }));
+  }
+  window.setThemePref = pref => { try { localStorage.setItem(TKEY, pref); } catch (e) {} applyTheme(); };
+  window.getThemePref = getPref;
+  if (mq) (mq.addEventListener ? mq.addEventListener("change", applyTheme) : mq.addListener(applyTheme));
+  applyTheme();
+  document.addEventListener("DOMContentLoaded", applyTheme);
   if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
   async function api(path, opts) {
     const r = await fetch(path, Object.assign({ credentials: "same-origin" }, opts || {}));

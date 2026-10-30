@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0c1410">
+<meta name="theme-color" content="#0c1410" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f2f5f1" media="(prefers-color-scheme: light)">
 <title>Compo FC · Connexion</title>
 <link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
@@ -15,6 +16,12 @@
   --bg:#0c1410; --panel:#132019; --panel-2:#1a2b22; --line:#2a3f33;
   --fg:#eef3ee; --muted:#93a89a; --accent:#7ee08a; --accent-ink:#08210f; --err:#ff8a7a;
   --display:"Barlow Condensed",system-ui,sans-serif; --body:"Barlow",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:light){
+  :root{--bg:#f2f5f1;--panel:#ffffff;--panel-2:#eef2ed;--line:#d5ded6;--fg:#14211a;--muted:#5b6d61;--accent:#3aa858;--err:#c0392b}
+  body{background:radial-gradient(120% 80% at 50% 0%,rgba(58,168,88,.12),transparent 60%),repeating-linear-gradient(180deg,#f2f5f1 0 64px,#edf2ec 64px 128px)!important}
+  .card{background:#fff!important;box-shadow:0 18px 50px rgba(20,33,26,.12)!important}
+  input{background:#f6f8f5!important}
 }
 *{box-sizing:border-box}
 html,body{height:100%}
