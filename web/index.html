@@ -4005,7 +4005,8 @@ document.getElementById("imgBtn").onclick=async e=>{
 /* ---- Finitions design ---- */
 .mc-sum{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .mine-card .mc-rank b{text-shadow:0 0 24px rgba(126,224,138,.35)}
-body{background:radial-gradient(1200px 520px at 50% -180px,rgba(126,224,138,.09),transparent 70%),var(--bg);background-attachment:fixed}
+html{background:radial-gradient(1200px 520px at 50% -180px,rgba(126,224,138,.09),transparent 70%) no-repeat,var(--bg)}
+body{background:transparent}
 .brand{display:flex;align-items:center;gap:0}
 .brand-ico{width:26px;height:26px;border-radius:7px;margin-right:9px;box-shadow:0 0 0 1px rgba(255,255,255,.06)}
 .box{box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 10px 30px rgba(0,0,0,.18)}
@@ -4036,6 +4037,38 @@ body{background:radial-gradient(1200px 520px at 50% -180px,rgba(126,224,138,.09)
   .sheet-head input[type=search]{flex:1 1 100%;width:100%}
   .sheet::before{content:"";position:absolute;top:7px;left:50%;transform:translateX(-50%);width:40px;height:4px;border-radius:2px;background:var(--line)}
 }
+</style>
+
+<style>
+html,body{min-height:100%}
+.rrow.mine .ht,[data-theme="light"] .rrow.mine .ht{color:var(--fg)}
+.rrow.mine.wh .ht:last-child,.rrow.mine.wa .ht:first-child{color:var(--muted)}
+/* ---- Thème clair (Julien) ---- */
+[data-theme="light"]{
+  --bg:#f2f5f1; --panel:#ffffff; --panel-2:#eef2ed; --line:#d5ded6;
+  --fg:#14211a; --muted:#5b6d61; --accent:#3aa858; --accent-t:#1d7a36;
+  --warn:#a8521a; --warn-bg:#fdf1e6; --gold-t:#94700c; --red-t:#c0392b;
+  color-scheme:light;
+}
+html[data-theme="light"]{background:radial-gradient(1200px 520px at 50% -180px,rgba(58,168,88,.10),transparent 70%) no-repeat,var(--bg)}
+[data-theme="light"] .sync.ok,[data-theme="light"] .brand span,[data-theme="light"] .name-wrap:hover .pen,[data-theme="light"] .mc-name:hover,[data-theme="light"] .mc-rank b,[data-theme="light"] .mc-rank span,[data-theme="light"] .mc-cd,[data-theme="light"] .tlink:hover,[data-theme="light"] .lg-table tr.mine td.tn,[data-theme="light"] .rrow.mine .ht,[data-theme="light"] .btie .bl.mine span,[data-theme="light"] .aw-xil span.mine,[data-theme="light"] .gcol b,[data-theme="light"] .group,[data-theme="light"] .who .off,[data-theme="light"] .nextbar .lab,[data-theme="light"] .nextbar .cd,[data-theme="light"] .bottomnav a.on{color:var(--accent-t)}
+[data-theme="light"] .ai-ovr,[data-theme="light"] .mc-lab.cup,[data-theme="light"] .subs .gcol b,[data-theme="light"] .motm b,[data-theme="light"] .nextbar .cup{color:var(--gold-t)}
+[data-theme="light"] .lg-table tbody tr:first-child td:first-child{color:var(--gold-t)}
+[data-theme="light"] .btn.danger,[data-theme="light"] .who .abs,[data-theme="light"] .abs-row span:last-child{color:var(--red-t)}
+[data-theme="light"] .appbar{background:color-mix(in srgb,var(--bg) 90%,transparent)}
+[data-theme="light"] .box,[data-theme="light"] .mine-card,[data-theme="light"] .nextbar,[data-theme="light"] .rrow{box-shadow:0 1px 2px rgba(20,33,26,.06),0 6px 18px rgba(20,33,26,.05)}
+[data-theme="light"] .mine-card{background:linear-gradient(160deg,color-mix(in srgb,var(--accent) 12%,#fff),#fff)}
+[data-theme="light"] .rrow b{background:var(--panel)}
+[data-theme="light"] .rlist .rdet{background:var(--panel)}
+[data-theme="light"] .nextbar .cd{background:rgba(58,168,88,.12)}
+[data-theme="light"] .bottomnav a.on svg{background:rgba(58,168,88,.14)}
+[data-theme="light"] .mine-card .mc-rank b{text-shadow:none}
+[data-theme="light"] .brand-ico{box-shadow:none}
+[data-theme="light"] .me-menu{box-shadow:0 12px 30px rgba(20,33,26,.15)}
+[data-theme="light"] .overlay{background:rgba(20,33,26,.35)}
+[data-theme="light"] .pitch{border-color:#174a2a}
+[data-theme="light"] .ai-banner{background:var(--panel-2)}
+[data-theme="light"] .abs-banner.alert{background:#fff4f1}
 </style>
 </body>
 </html>
