@@ -99,6 +99,7 @@ setTimeout(() => runTick(true), 3000);
 
 // ---------- HTTP ----------
 const WEB = path.join(__dirname, "web");
+const STATIC = { "/favicon.svg": "image/svg+xml", "/favicon-32.png": "image/png", "/favicon.ico": "image/png", "/apple-touch-icon.png": "image/png", "/icon-512.png": "image/png", "/manifest.webmanifest": "application/manifest+json" };
 const cookieOf = req => Object.fromEntries((req.headers.cookie || "").split(";").map(c => c.trim().split("=")).filter(x => x[0]));
 const okKey = k => ACCESS_KEY && k && k.length === ACCESS_KEY.length && crypto.timingSafeEqual(Buffer.from(k), Buffer.from(ACCESS_KEY));
 const authed = req => !ACCESS_KEY || okKey(decodeURIComponent(cookieOf(req).k || ""));
@@ -114,7 +115,7 @@ function readBody(req, limit = 5e6) {
     req.on("error", ko);
   });
 }
-const LOGIN = `<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Compo FC</title>
+const LOGIN = `<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><title>Compo FC</title>
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0c1410;color:#eef3ee;font:16px system-ui,sans-serif;padding:16px}form{display:grid;gap:12px;width:min(320px,100%)}input,button{font:inherit;padding:12px;border-radius:10px;border:1px solid #2a3f33;background:#132019;color:inherit}button{background:#7ee08a;color:#08210f;font-weight:700;border:0}</style>
 <form method="post" action="/login"><h1 style="margin:0">Compo FC</h1><input name="k" type="password" placeholder="Code d'accès" autofocus required><button>Entrer</button></form></html>`;
 
@@ -123,6 +124,7 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://x");
     const p = url.pathname;
     if (p === "/health") return send(res, 200, { ok: true });
+    if (req.method === "GET" && STATIC[p]) return send(res, 200, fs.readFileSync(path.join(WEB, p === "/favicon.ico" ? "favicon-32.png" : p.slice(1))), STATIC[p], { "cache-control": "public, max-age=86400" });
     if (p === "/login") {
       if (req.method === "POST") {
         const k = new URLSearchParams(await readBody(req, 1e4)).get("k") || "";
@@ -151,6 +153,7 @@ const server = http.createServer(async (req, res) => {
     if (p === "/api/tick" && req.method === "POST") { await runTick(true); return send(res, 200, { ok: true, meta: store.meta }); }
     if (p === "/api/test-slack" && req.method === "POST") { await slack("✅ Compo FC est bien connecté à ce canal."); return send(res, 200, { ok: true }); }
     if (req.method === "GET" && (p === "/" || p === "/index.html")) return send(res, 200, fs.readFileSync(path.join(WEB, "index.html")), "text/html; charset=utf-8");
+    if (req.method === "GET" && STATIC[p]) return send(res, 200, fs.readFileSync(path.join(WEB, p.slice(1))), STATIC[p], { "cache-control": "public, max-age=86400" });
     if (req.method === "GET" && p === "/shim.js") return send(res, 200, fs.readFileSync(path.join(WEB, "shim.js")), "text/javascript; charset=utf-8");
     return send(res, 404, { error: "introuvable" });
   } catch (e) {
