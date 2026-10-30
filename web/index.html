@@ -374,7 +374,7 @@ body.view-ai .team-name{pointer-events:none}
   <div class="appbar-in">
     <div class="brand"><img src="/favicon.svg" alt="" class="brand-ico">COMPO<span>FC</span></div>
     <nav class="views" aria-label="Sections">
-      <a href="#equipe" data-v="equipe" class="on">Mon équipe</a>
+      <a href="#equipe" data-v="equipe" class="on">Mon équipe<i class="dot" id="teamDot" hidden></i></a>
       <a href="#championnat" data-v="championnat">Championnat<i class="dot" id="lgDot" hidden></i></a>
       <a href="#coupe" data-v="coupe">Coupe</a>
     </nav>
@@ -386,7 +386,7 @@ body.view-ai .team-name{pointer-events:none}
   </div>
 </div>
 <nav class="views bottomnav" aria-label="Sections">
-  <a href="#equipe" data-v="equipe" class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3 3 6l2 5 2-1v11h10V10l2 1 2-5-5-3c-.5 1.7-2.1 3-4 3S8.5 4.7 8 3z"/></svg><span>Mon équipe</span></a>
+  <a href="#equipe" data-v="equipe" class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3 3 6l2 5 2-1v11h10V10l2 1 2-5-5-3c-.5 1.7-2.1 3-4 3S8.5 4.7 8 3z"/></svg><span>Mon équipe</span><i class="dot" id="teamDot2" hidden></i></a>
   <a href="#championnat" data-v="championnat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 10h16M4 15h16M4 20h10"/></svg><span>Championnat</span><i class="dot" id="lgDot2" hidden></i></a>
   <a href="#coupe" data-v="coupe"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v4a5 5 0 0 1-10 0V4zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3M12 13v4M8 21h8M9 17h6v4H9z"/></svg><span>Coupe</span></a>
 </nav>
@@ -434,8 +434,8 @@ body.view-ai .team-name{pointer-events:none}
       <section class="box">
         <div class="box-head">
           <div class="tabs2" role="tablist">
-            <button role="tab" class="tab2 on" id="tabBench" aria-selected="true">Remplaçants</button>
-            <button role="tab" class="tab2" id="tabSet" aria-selected="false">Coups de pied arrêtés</button>
+            <button role="tab" class="tab2 on" id="tabBench" aria-selected="true">Remplaçants<i class="rdot" id="dotBench" hidden></i></button>
+            <button role="tab" class="tab2" id="tabSet" aria-selected="false">Coups de pied arrêtés<i class="rdot" id="dotSet" hidden></i></button>
           </div>
         </div>
         <div class="bench" id="bench"></div>
@@ -3999,7 +3999,22 @@ document.getElementById("imgBtn").onclick=async e=>{
       bar.hidden=false;
     }catch(e){bar.hidden=true}
   }
-  const _render=render;render=function(){const r=_render.apply(this,arguments);try{markTabs();nextBar();
+  // Points rouges : coups de pied arrêtés incomplets, joueur indisponible au banc / en réserve / sur le terrain
+  function alerts(){
+    const set=(id,on,title)=>{const e=document.getElementById(id);if(e){e.hidden=!on;if(title)e.title=title}};
+    if(viewAI!=null||typeof state==="undefined"||!state){["dotBench","dotSet","teamDot","teamDot2"].forEach(i=>set(i,false));return}
+    const k=(typeof league!=="undefined"&&league&&league.schedule)?nextDay():-1;
+    const out=n=>!!(n&&k>=0&&statusOf(n,k));
+    const xi=state.xi.filter(Boolean),subs=[...(state.bench||[]),...(state.res||[])].filter(Boolean);
+    const xiOut=xi.filter(out),subOut=subs.filter(out);
+    const T=state.takers||{},missing=SETP.filter(([key])=>!T[key]||!xi.includes(T[key])||out(T[key]));
+    set("dotBench",subOut.length>0,subOut.length?"Indisponibles : "+subOut.join(", "):"");
+    set("dotSet",missing.length>0,missing.length?"À désigner : "+missing.map(x=>x[1]).join(", "):"");
+    const any=xiOut.length||subOut.length||missing.length;
+    set("teamDot",!!any);set("teamDot2",!!any);
+  }
+  if(typeof renderSetPieces==="function"){const _rsp=renderSetPieces;renderSetPieces=function(){const r=_rsp.apply(this,arguments);try{alerts()}catch(e){}return r}}
+  const _render=render;render=function(){const r=_render.apply(this,arguments);try{markTabs();nextBar();alerts();
     const tn=document.getElementById("teamName");if(tn)tn.readOnly=true;
     const nav=document.querySelector("#view-equipe .teams");if(nav)nav.classList.toggle("solo",viewAI==null&&book.teams.length<2)}catch(e){}return r};
   // Au premier chargement, ouvrir sa propre équipe
@@ -4015,11 +4030,15 @@ document.getElementById("imgBtn").onclick=async e=>{
 
 <style>
 /* ---- Finitions design ---- */
-.pstat{position:absolute;top:10px;z-index:2;display:grid;gap:0;padding:6px 10px 5px;border-radius:10px;background:rgba(8,20,12,.62);
-  border:1px solid rgba(255,255,255,.12);color:#eef3ee;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);pointer-events:none}
-.pstat.left{left:10px;text-align:left}.pstat.right{right:10px;text-align:right}
-.pstat b{font-family:var(--display);font-weight:800;font-size:clamp(20px,3.4vw,28px);line-height:1}
-.pstat span{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:rgba(238,243,238,.75);white-space:nowrap}
+/* Note et âge : petites étiquettes posées dans les coins de corner, sans toucher les joueurs */
+.pstat{position:absolute;top:3px;z-index:2;display:flex;align-items:baseline;gap:5px;padding:2px 7px;border-radius:6px;background:rgba(8,20,12,.55);
+  color:#eef3ee;pointer-events:none;line-height:1.2}
+.rdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#e0735a;margin-left:6px;vertical-align:5px}
+.rdot[hidden]{display:none}
+.tab2{position:relative}
+.pstat.left{left:3px}.pstat.right{right:3px;flex-direction:row-reverse}
+.pstat b{font-family:var(--display);font-weight:800;font-size:15px}
+.pstat span{font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:rgba(238,243,238,.78);white-space:nowrap}
 .mc-sum{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .mine-card .mc-rank b{text-shadow:0 0 24px rgba(126,224,138,.35)}
 html{background:radial-gradient(1200px 520px at 50% -180px,rgba(126,224,138,.09),transparent 70%) no-repeat,var(--bg)}
