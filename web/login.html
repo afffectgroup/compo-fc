@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0c1410">
+<title>Compo FC · Connexion</title>
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#0c1410; --panel:#132019; --panel-2:#1a2b22; --line:#2a3f33;
+  --fg:#eef3ee; --muted:#93a89a; --accent:#7ee08a; --accent-ink:#08210f; --err:#ff8a7a;
+  --display:"Barlow Condensed",system-ui,sans-serif; --body:"Barlow",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;min-height:100dvh;display:grid;place-items:center;padding:24px 16px;
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(126,224,138,.10), transparent 60%),
+    repeating-linear-gradient(180deg, #0d1712 0 64px, #0b130f 64px 128px);
+  color:var(--fg);font:16px/1.45 var(--body);
+}
+.card{
+  width:min(380px,100%);background:linear-gradient(180deg,var(--panel-2),var(--panel));
+  border:1px solid var(--line);border-radius:20px;padding:32px 28px 26px;
+  box-shadow:0 24px 60px rgba(0,0,0,.45);
+}
+.brand{display:flex;align-items:center;gap:14px;margin-bottom:26px}
+.brand img{width:52px;height:52px;border-radius:12px;flex:none}
+.brand h1{margin:0;font-family:var(--display);font-weight:800;font-size:34px;line-height:.95;letter-spacing:.01em;text-transform:uppercase}
+.brand h1 span{color:var(--accent)}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:14px}
+label{display:block;font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.field{position:relative}
+input{
+  width:100%;font:inherit;font-size:17px;color:var(--fg);background:var(--bg);
+  border:1px solid var(--line);border-radius:12px;padding:14px 52px 14px 14px;outline:none;
+  transition:border-color .15s, box-shadow .15s;
+}
+input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(126,224,138,.18)}
+.err input{border-color:var(--err)}
+.toggle{
+  position:absolute;right:6px;top:50%;transform:translateY(-50%);width:40px;height:40px;
+  display:grid;place-items:center;border:0;border-radius:9px;background:transparent;color:var(--muted);cursor:pointer;
+}
+.toggle:hover,.toggle:focus-visible{color:var(--fg);background:var(--panel-2);outline:none}
+.toggle svg{width:20px;height:20px}
+.msg{margin:10px 0 0;color:var(--err);font-size:14px;display:flex;gap:6px;align-items:center}
+button.go{
+  margin-top:18px;width:100%;font:inherit;font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:.04em;text-transform:uppercase;
+  padding:13px;border:0;border-radius:12px;background:var(--accent);color:var(--accent-ink);cursor:pointer;
+  transition:filter .15s, transform .05s;
+}
+button.go:hover{filter:brightness(1.06)}
+button.go:active{transform:translateY(1px)}
+button.go:focus-visible{outline:3px solid rgba(126,224,138,.45);outline-offset:2px}
+.foot{margin:20px 0 0;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:13px;display:flex;gap:8px;align-items:center}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px rgba(126,224,138,.18);flex:none}
+@media (max-width:380px){.card{padding:26px 20px 22px}.brand h1{font-size:30px}}
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="brand">
+    <img src="/apple-touch-icon.png" alt="">
+    <div>
+      <h1>Compo <span>FC</span></h1>
+      <p>Championnat entre amis</p>
+    </div>
+  </div>
+  <form method="post" action="/login" class="<!--ERRCLASS-->">
+    <label for="k">Code d'accès</label>
+    <div class="field">
+      <input id="k" name="k" type="password" autocomplete="current-password" autofocus required aria-describedby="m">
+      <button type="button" class="toggle" id="t" aria-label="Afficher le code" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
+    <!--ERROR-->
+    <button class="go" type="submit">Entrer</button>
+  </form>
+  <p class="foot"><span class="dot" aria-hidden="true"></span>Matchs tous les jours à 9h et 14h</p>
+</main>
+<script>
+const i=document.getElementById("k"),t=document.getElementById("t");
+t.onclick=()=>{const s=i.type==="password";i.type=s?"text":"password";t.setAttribute("aria-pressed",s);t.setAttribute("aria-label",s?"Masquer le code":"Afficher le code");i.focus()};
+</script>
+</body>
+</html>
