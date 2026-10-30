@@ -4005,7 +4005,7 @@ document.getElementById("imgBtn").onclick=async e=>{
     if(viewAI!=null||typeof state==="undefined"||!state){["dotBench","dotSet","teamDot","teamDot2"].forEach(i=>set(i,false));return}
     const k=(typeof league!=="undefined"&&league&&league.schedule)?nextDay():-1;
     const out=n=>!!(n&&k>=0&&statusOf(n,k));
-    const xi=state.xi.filter(Boolean),subs=[...(state.bench||[]),...(state.res||[])].filter(Boolean);
+    const xi=state.xi.filter(Boolean),subs=(state.bench||[]).filter(Boolean); // la réserve ne compte pas
     const xiOut=xi.filter(out),subOut=subs.filter(out);
     const T=state.takers||{},missing=SETP.filter(([key])=>!T[key]||!xi.includes(T[key])||out(T[key]));
     set("dotBench",subOut.length>0,subOut.length?"Indisponibles : "+subOut.join(", "):"");
