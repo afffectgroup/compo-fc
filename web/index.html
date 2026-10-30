@@ -3918,9 +3918,13 @@ document.getElementById("imgBtn").onclick=async e=>{
 #leagueBox .seg::-webkit-scrollbar{display:none}
 #leagueBox .seg button{flex:none;scroll-snap-align:start}
 .bottomnav{display:none}
-/* Ordinateur : tout le terrain tient dans l'écran et le banc reste à côté, plus besoin de faire défiler pour échanger */
+/* Ordinateur : grand terrain, banc fixé à côté */
 @media (min-width:821px){
-  .main .pitch{max-width:min(560px,max(380px,calc((100vh - 250px) * .68)))}
+  .wrap{max-width:1180px}
+  .main .pitch{max-width:600px}
+  .main .pitch .slot{width:clamp(62px,16%,94px)}
+  .main aside .bench{grid-template-columns:repeat(5,minmax(0,1fr))}
+  /* le banc reste visible à côté du terrain pendant qu'on fait défiler */
   .main>aside{position:sticky;top:76px;max-height:calc(100vh - 90px);overflow:auto;scrollbar-width:thin}
 }
 @media (max-width:700px){
