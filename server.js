@@ -200,6 +200,14 @@ const server = http.createServer(async (req, res) => {
     const m = p.match(/^\/api\/docs\/([A-Za-z0-9_\-.]{1,80})$/);
     if (m && req.method === "PUT") {
       const id = m[1], data = JSON.parse(await readBody(req));
+      if (id === "photos") {
+        if (AUTH_ON && userOf(req) !== "admin") return send(res, 403, { error: "réservé à l'admin" });
+        const clean = {};
+        for (const [n, u] of Object.entries(data || {})) if (typeof n === "string" && n.length < 80 && typeof u === "string" && /^https:\/\/[^\s"'()<>]{4,600}$/.test(u)) clean[n] = u;
+        store.docs.photos = clean;
+        persist();
+        return send(res, 200, { ok: true });
+      }
       if (id === "book") store.docs.book = mergeBook(store.docs.book, data, userOf(req));
       else if (id === "league") store.docs.league = mergeLeague(store.docs.league, data);
       else store.docs[id] = data;

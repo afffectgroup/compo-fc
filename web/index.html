@@ -397,7 +397,7 @@ body.view-ai .team-name{pointer-events:none}
     <button type="button" class="theme-btn" id="themeBtn" hidden aria-label="Thème"></button>
     <div class="me" id="meBox" hidden>
       <button type="button" class="me-btn" id="meBtn" aria-haspopup="true" aria-expanded="false"><span class="me-av" id="meAv"></span><span class="me-nm" id="meNm"></span></button>
-      <div class="me-menu" id="meMenu" hidden><a href="/logout">Se déconnecter</a></div>
+      <div class="me-menu" id="meMenu" hidden><a href="#" id="photosLink" hidden>Photos des joueurs</a><a href="/logout">Se déconnecter</a></div>
     </div>
   </div>
 </div>
@@ -2917,7 +2917,7 @@ function fixBook(b){if(!b||!Array.isArray(b.teams))return b;
     xi:Array.from({length:11},(_,i)=>(t.xi&&t.xi[i])||null),bench:Array.from({length:7},(_,i)=>(t.bench&&t.bench[i])||null),res:Array.from({length:3},(_,i)=>(t.res&&t.res[i])||null),resv:Array.isArray(t.resv)?t.resv.filter(n=>typeof n==="string"):null,owner:typeof t.owner==="string"?t.owner:undefined,ts:+t.ts||0,captain:typeof t.captain==="string"?t.captain:null,takers:(t.takers&&typeof t.takers==="object")?{...t.takers}:{},tactic:TACTICS[t.tactic]?t.tactic:"equilibre"}));return b}
 async function pullCloud(){
   const snap=await cloud.col.get();let remote=null;
-  for(const d of snap.docs){const v=d.data();if(d.id==="league"&&v&&v.schedule){const rl=JSON.parse(JSON.stringify(v));if(!league||!league.schedule||rl.id===league.id||!league.results||Object.keys(rl.results||{}).length>=Object.keys(league.results).length){league=rl;try{localStorage.setItem(LKEY,JSON.stringify(league))}catch(e){}}}else if(d.id==="matches"&&v&&Array.isArray(v.list)){const rm=JSON.parse(JSON.stringify(v));const seen=new Set(rm.list.map(x=>x.date));(matches.list||[]).forEach(x=>{if(!seen.has(x.date))rm.list.push(x)});matches={home:rm.home||matches.home,away:rm.away||matches.away,since:[rm.since,matches.since].filter(Boolean).sort()[0]||null,list:rm.list};try{localStorage.setItem(MKEY,JSON.stringify(matches))}catch(e){}}else if(d.id==="book")remote=fixBook(JSON.parse(JSON.stringify(v)));else if(v&&v.name&&v.src)photos[v.name]=v.src}
+  for(const d of snap.docs){const v=d.data();if(d.id==="league"&&v&&v.schedule){const rl=JSON.parse(JSON.stringify(v));if(!league||!league.schedule||rl.id===league.id||!league.results||Object.keys(rl.results||{}).length>=Object.keys(league.results).length){league=rl;try{localStorage.setItem(LKEY,JSON.stringify(league))}catch(e){}}}else if(d.id==="matches"&&v&&Array.isArray(v.list)){const rm=JSON.parse(JSON.stringify(v));const seen=new Set(rm.list.map(x=>x.date));(matches.list||[]).forEach(x=>{if(!seen.has(x.date))rm.list.push(x)});matches={home:rm.home||matches.home,away:rm.away||matches.away,since:[rm.since,matches.since].filter(Boolean).sort()[0]||null,list:rm.list};try{localStorage.setItem(MKEY,JSON.stringify(matches))}catch(e){}}else if(d.id==="photos"&&v&&typeof v==="object"){photos={};Object.entries(v).forEach(([n,u])=>{if(typeof u==="string"&&BY[n])photos[n]=u})}else if(d.id==="book")remote=fixBook(JSON.parse(JSON.stringify(v)));else if(v&&v.name&&v.src)photos[v.name]=v.src}
   try{localStorage.setItem(PKEY,JSON.stringify(photos))}catch(e){}
   return remote;
 }
@@ -2990,7 +2990,9 @@ function cardFor(p,role){
   const top=el("div","top"), meta=el("div","meta"); meta.append(el("div","ovr",p.ovr),el("div","ps",POS_FR[role&&role!=="SUB"?role:p.pos[0]]));
   top.append(meta, flagEl(p.nat,"flag"));
   const bottom=el("div","bottom"); bottom.append(el("div","pn",shortName(p.name)),el("div","pc",p.club));
-  c.title=p.name; c.append(top,bottom);
+  c.title=p.name;
+  if(photos[p.name]&&/^https?:|^data:image\//.test(photos[p.name])){const im=document.createElement("img");im.className="ph";im.alt="";im.loading="lazy";im.decoding="async";im.draggable=false;im.src=photos[p.name];im.onerror=()=>im.remove();c.classList.add("has-ph");c.append(im)}
+  c.append(top,bottom);
   const k=typeof nextDay==="function"?nextDay():-1, st=k>=0?statusOf(p.name,k):null;
   if(k>=0&&DER.hist[p.name]){const cnd=conditionOf(p.name,k),fm=formOf(p.name,k);const bar=el("div","cond");const fi=el("i");fi.style.width=cnd+"%";fi.className=cnd>=88?"ok":cnd>=80?"mid":"low";bar.append(fi);c.append(bar);
     if(fm&&Math.abs(fm.bonus)>=.6){const ar=el("span","fm "+(fm.bonus>0?"up":"down"));meta.append(ar)}
@@ -4014,6 +4016,28 @@ document.getElementById("imgBtn").onclick=async e=>{
     tb.hidden=false;paint();
     tb.onclick=()=>{const n=NEXT[window.getThemePref()];window.setThemePref(n);paint();if(typeof toast==="function")toast(n==="auto"?"Thème : comme le système":`Thème : ${LAB[n].toLowerCase()}`)};
     document.addEventListener("themechange",paint)}
+  // Photos des joueurs : réservé au compte admin, qui colle un lien d'image par joueur
+  if(window.ME==="admin"){const pl=document.getElementById("photosLink");if(pl){pl.hidden=false;pl.onclick=e=>{e.preventDefault();document.getElementById("meMenu").hidden=true;openPhotos()}}}
+  function openPhotos(){
+    const ov=document.createElement("div");ov.className="overlay ph-sheet";
+    const sh=document.createElement("div");sh.className="sheet";ov.append(sh);
+    const head=el("div","sheet-head"),tt=el("div","sheet-title");tt.append(el("h3",null,"Photos des joueurs"));const cl=el("button","btn","Fermer");cl.type="button";tt.append(cl);head.append(tt);
+    head.append(el("p","note","Colle le lien d'une image pour chaque joueur. Les images ajoutées sont sous ta responsabilité. Laisse vide pour garder la carte sans photo."));sh.append(head);
+    const list=el("div","ph-list");sh.append(list);
+    const draft={...photos};let timer=0;
+    const push=()=>{clearTimeout(timer);timer=setTimeout(async()=>{try{await cloud.col.doc("photos").set(draft);photos={...draft};render();toast("Photos enregistrées")}catch(e){toast("Échec de l'enregistrement")}},500)};
+    book.teams.forEach(T=>{list.append(el("div","ph-team",T.name));
+      [...new Set([...T.xi,...(T.bench||[]),...(T.res||[])].filter(n=>n&&BY[n]))].forEach(n=>{const p=BY[n],row=el("div","ph-row"),pv=el("div","ph-prev");
+        if(draft[n])pv.style.backgroundImage=`url("${draft[n]}")`;
+        const nm=el("div");nm.append(el("b",null,p.name),el("small",null,`${p.pos.map(x=>POS_FR[x]).join("/")} · ${p.club}`));
+        const inp=document.createElement("input");inp.type="url";inp.placeholder="https://…";inp.value=draft[n]||"";inp.setAttribute("aria-label",`Lien de la photo de ${p.name}`);
+        const rm=el("button","btn small","Retirer");rm.type="button";rm.hidden=!draft[n];
+        const apply=()=>{const v=inp.value.trim();row.classList.toggle("bad",!!v&&!/^https:\/\//.test(v));if(v&&!/^https:\/\//.test(v))return;
+          if(v)draft[n]=v;else delete draft[n];pv.style.backgroundImage=v?`url("${v}")`:"";rm.hidden=!v;push()};
+        inp.onchange=apply;inp.onkeydown=e=>{if(e.key==="Enter")inp.blur()};rm.onclick=()=>{inp.value="";apply()};
+        row.append(pv,nm,inp,rm);list.append(row)})});
+    const close=()=>{ov.remove();document.removeEventListener("keydown",esc)};const esc=e=>{if(e.key==="Escape")close()};
+    cl.onclick=close;ov.onclick=e=>{if(e.target===ov)close()};document.addEventListener("keydown",esc);document.body.append(ov)}
   // Pastille rouge aussi dans la barre du bas
   const d1=document.getElementById("lgDot"),d2=document.getElementById("lgDot2");
   if(d1&&d2)new MutationObserver(()=>{d2.hidden=d1.hidden}).observe(d1,{attributes:true});
@@ -4070,6 +4094,21 @@ document.getElementById("imgBtn").onclick=async e=>{
 </script>
 
 <style>
+/* ---- Photos des joueurs (liens ajoutés par l'admin) ---- */
+.card .ph{position:absolute;left:18%;right:-2%;top:6%;bottom:27%;width:auto;height:auto;max-width:none;object-fit:contain;object-position:center bottom;pointer-events:none;z-index:0;
+  -webkit-mask-image:linear-gradient(180deg,#000 80%,transparent);mask-image:linear-gradient(180deg,#000 80%,transparent)}
+.card .top,.card .bottom{position:relative;z-index:1}
+.card.has-ph .flag{opacity:.95}
+.ph-sheet .sheet{width:min(760px,100%)}
+.ph-list{overflow:auto;padding:6px 14px 14px;display:grid;gap:6px}
+.ph-team{font-family:var(--display);font-weight:800;text-transform:uppercase;letter-spacing:.04em;font-size:16px;margin:12px 0 2px}
+.ph-row{display:grid;grid-template-columns:48px minmax(0,150px) minmax(0,1fr) auto;gap:10px;align-items:center;padding:6px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2)}
+.ph-prev{width:48px;height:48px;border-radius:8px;background:var(--bg) center/contain no-repeat;border:1px solid var(--line)}
+.ph-row b{font-size:14px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ph-row small{color:var(--muted);font-size:12px}
+.ph-row input{width:100%;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px}
+.ph-row input:focus{border-color:var(--accent);outline:none}
+.ph-row.bad input{border-color:#e0735a}
+@media (max-width:600px){.ph-row{grid-template-columns:48px minmax(0,1fr) auto}.ph-row input{grid-column:1/-1}}
 /* ---- Finitions design ---- */
 .row .who b{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .row .where{font-family:var(--body);font-size:11px;font-weight:600;letter-spacing:.02em;padding:1px 8px;border-radius:999px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted)}
