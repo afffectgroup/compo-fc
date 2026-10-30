@@ -114,7 +114,7 @@ setTimeout(() => runTick(true), 3000);
 
 // ---------- HTTP ----------
 const WEB = path.join(__dirname, "web");
-const STATIC = { "/favicon.svg": "image/svg+xml", "/favicon-16.png": "image/png", "/favicon-32.png": "image/png", "/favicon-48.png": "image/png", "/favicon.ico": "image/x-icon", "/apple-touch-icon.png": "image/png", "/icon-512.png": "image/png", "/icon-192.png": "image/png", "/icon-maskable-512.png": "image/png", "/manifest.webmanifest": "application/manifest+json" };
+const STATIC = { "/favicon.svg": "image/svg+xml", "/favicon-16.png": "image/png", "/favicon-32.png": "image/png", "/favicon-48.png": "image/png", "/favicon.ico": "image/x-icon", "/apple-touch-icon.png": "image/png", "/icon-512.png": "image/png", "/icon-192.png": "image/png", "/icon-maskable-512.png": "image/png", "/manifest.webmanifest": "application/manifest+json", "/og.jpg": "image/jpeg" };
 const cookieOf = req => Object.fromEntries((req.headers.cookie || "").split(";").map(c => c.trim().split("=")).filter(x => x[0]));
 const same = (a, b) => a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
 const userOfCode = k => { if (!k) return null; const u = USERS.find(u => same(k, u.code)); return u ? u.name : null; };
