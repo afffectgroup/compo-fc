@@ -403,7 +403,7 @@ body.view-ai .team-name{pointer-events:none}
   <div class="abs-banner" id="absBanner" hidden></div>
   <header>
     <div class="name-wrap">
-      <input id="teamName" class="team-name" value="Mon 4-3-3 possession" aria-label="Nom de l'équipe">
+      <input id="teamName" class="team-name" value="" aria-label="Nom de l'équipe">
       <svg class="pen" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
     </div>
     <div class="nextbar" id="nextBar" hidden></div>
@@ -3171,8 +3171,10 @@ function renderResults(){
   if(list.length>200)box.append(el("p","note","Affiche les 200 premiers. Tape un nom ou un club pour affiner."));
   function addRow(p){
     const others=u.has(p.name)?[]:otherTeamsWith(p.name);
-    const r=el("button","row"+(u.has(p.name)?" used":"")+(others.length?" conflict":"")); r.type="button";
-    const who=el("div","who"), sub=el("span"); sub.append(flagEl(p.nat,"iflag"), document.createTextNode(`${p.club}${p.age>0?" · "+p.age+" ans":""}${u.has(p.name)?" · déjà dans l'équipe":""}${others.length?" · déjà dans « "+others.map(t=>t.name).join(" », « ")+" »":""}`)); const nm=el("b",null,p.name); const ps=statusOf(p.name,nextDay()); if(ps)sub.append(el("em","abs",` · ${ps.type==="inj"?"blessé":"suspendu"} (${ps.left} j)`)); who.append(nm,sub);
+    const where=(()=>{const i=state.xi.indexOf(p.name);if(i>=0){const f=FORMATIONS[state.formation]||FORMATIONS["4-3-3"];return "Titulaire "+POS_FR[f[i][0]]}if((state.bench||[]).includes(p.name))return "Remplaçant";if((state.res||[]).includes(p.name))return "Réserve";return ""})();
+    const isCur=p.name===currentName(),locked=!!lockedRoster();
+    const r=el("button","row"+(u.has(p.name)&&!locked?" used":"")+(isCur?" current":"")+(others.length?" conflict":"")); r.type="button";
+    const who=el("div","who"), sub=el("span"); sub.append(flagEl(p.nat,"iflag"), document.createTextNode(`${p.club}${p.age>0?" · "+p.age+" ans":""}${where&&!locked?" · déjà dans l'équipe":""}${others.length?" · déjà dans « "+others.map(t=>t.name).join(" », « ")+" »":""}`)); const nm=el("b",null,p.name); if(where&&locked)nm.append(el("small","where",isCur?"Actuellement ici":where)); const ps=statusOf(p.name,nextDay()); if(ps)sub.append(el("em","abs",` · ${ps.type==="inj"?"blessé":"suspendu"} (${ps.left} match${ps.left>1?"s":""})`)); who.append(nm,sub);
     r.append(el("div","r "+tierOf(p),p.ovr),who,el("div","tag",p.pos.map(x=>POS_FR[x]).join(" / ")));
     r.onclick=()=>pick(p.name); box.append(r);
   }
@@ -3281,6 +3283,16 @@ const _bi=document.getElementById("bulkInput"); if(_bi)_bi.onchange=async e=>{
 
 const SETP=[["pen","Penalty"],["fk","Coup franc direct"],["fki","Coup franc indirect"],["ckl","Corner gauche"],["ckr","Corner droit"]];
 let spOpen=null;
+// Choix automatique des tireurs manquants : les meilleurs joueurs du onze, selon le poste
+function autoTakers(){
+  const k=(typeof league!=="undefined"&&league&&league.schedule)?nextDay():-1;
+  const xi=state.xi.filter(n=>n&&BY[n]&&!(k>=0&&statusOf(n,k))).map(n=>BY[n]);
+  const pref={pen:["ST","CAM","LW","RW"],fk:["CAM","LW","RW","CM","ST"],fki:["CM","CAM","CDM","LW","RW"],ckl:["RW","LW","CAM","CM"],ckr:["LW","RW","CAM","CM"]};
+  const used=new Set();
+  SETP.forEach(([key])=>{const cur=state.takers[key];if(cur&&state.xi.includes(cur))return;
+    const score=p=>p.ovr+(pref[key].findIndex(x=>p.pos.includes(x))>=0?12-3*pref[key].findIndex(x=>p.pos.includes(x)):0)-(p.pos.includes("GK")?60:0)-(p.pos.every(x=>x==="CB"||x==="GK")?25:0)-((key==="ckl"||key==="ckr")&&used.has(p.name)?20:0);
+    const best=xi.slice().sort((a,b)=>score(b)-score(a))[0];if(best){state.takers[key]=best.name;if(key==="ckl"||key==="ckr")used.add(best.name)}});
+}
 function renderSetPieces(){
   const box=document.getElementById("setp"); if(!box)return; box.replaceChildren();
   const xi=state.xi.filter(n=>n&&BY[n]).map(n=>BY[n]).sort((a,b)=>b.ovr-a.ovr);
@@ -3292,6 +3304,9 @@ function renderSetPieces(){
     b.append(p?cardFor(p,"SUB"):el("div","empty","+")); b.setAttribute("aria-label",`${lab} : ${p?p.name:"aucun"}, changer`);
     b.onclick=()=>{if(RO())return;spOpen=spOpen===k?null:k;renderSetPieces()}; item.append(b); grid.append(item)});
   box.append(grid);
+  if(!RO()){const missing=SETP.filter(([k])=>!state.takers[k]||!state.xi.includes(state.takers[k]));
+    if(missing.length){const bar=el("div","sp-auto");bar.append(el("span",null,`${missing.length} tireur${missing.length>1?"s":""} à désigner`));
+      const ab=el("button","btn small primary","Désigner automatiquement");ab.type="button";ab.onclick=()=>{autoTakers();save();renderSetPieces();toast("Tireurs désignés, modifiables à tout moment")};bar.append(ab);box.append(bar)}}
   if(spOpen){
     const lab=SETP.find(s=>s[0]===spOpen)[1], ch=el("div","sp-choose");
     const head=el("div","box-head"); head.append(el("span","sp-title",`Tireur : ${lab}`));
@@ -3965,6 +3980,8 @@ document.getElementById("imgBtn").onclick=async e=>{
 <script>
 // ---- Couche UI de la version hébergée ----
 (function(){
+  document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;const ov=document.getElementById("overlay");if(ov&&!ov.hidden&&typeof closePicker==="function"){closePicker();return}
+    if(typeof spOpen!=="undefined"&&spOpen){spOpen=null;renderSetPieces()}});
   const ME=window.ME&&window.ME!=="admin"?window.ME:null;
   if(window.ME){const box=document.getElementById("meBox");box.hidden=false;document.getElementById("meAv").textContent=(window.ME[0]||"?").toUpperCase();document.getElementById("meNm").textContent=window.ME==="admin"?"Admin":window.ME;
     const b=document.getElementById("meBtn"),m=document.getElementById("meMenu");
@@ -4038,6 +4055,12 @@ document.getElementById("imgBtn").onclick=async e=>{
 
 <style>
 /* ---- Finitions design ---- */
+.row .who b{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.row .where{font-family:var(--body);font-size:11px;font-weight:600;letter-spacing:.02em;padding:1px 8px;border-radius:999px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted)}
+.row.current{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.row.current .where{color:var(--accent-t,var(--accent));border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.sp-auto{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px;padding:10px 12px;border-radius:10px;
+  background:color-mix(in srgb,#e0735a 9%,var(--panel-2));border:1px solid color-mix(in srgb,#e0735a 35%,var(--line));font-size:14px}
 /* Prochain match dans l'en-tête, entre le nom et dispositif + tactique */
 #view-equipe header{align-items:center}
 #view-equipe header .name-wrap{flex:0 1 auto}
