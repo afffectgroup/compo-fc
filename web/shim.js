@@ -21,7 +21,19 @@
   if (mq) (mq.addEventListener ? mq.addEventListener("change", applyTheme) : mq.addListener(applyTheme));
   applyTheme();
   document.addEventListener("DOMContentLoaded", applyTheme);
-  if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
+  if ("serviceWorker" in navigator) {
+    addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
+    // Mise à jour de l'app détectée : rechargement automatique dès que rien n'est en cours (pas de carte en main, pas de fenêtre ouverte)
+    navigator.serviceWorker.addEventListener("message", ev => {
+      if (!ev.data || ev.data.type !== "app-updated") return;
+      const tryReload = () => {
+        const busy = (typeof drag !== "undefined" && drag) || document.querySelector(".overlay:not([hidden])");
+        if (busy) return setTimeout(tryReload, 2000);
+        location.reload();
+      };
+      tryReload();
+    });
+  }
   async function api(path, opts) {
     const r = await fetch(path, Object.assign({ credentials: "same-origin" }, opts || {}));
     if (r.status === 401) { location.href = "/login"; throw new Error("auth"); }

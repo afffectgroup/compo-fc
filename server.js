@@ -18,6 +18,7 @@ const AUTH_ON = USERS.length > 0;
 const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL || "";
 const APP_URL = (process.env.APP_URL || process.env.RAILWAY_PUBLIC_DOMAIN && "https://" + process.env.RAILWAY_PUBLIC_DOMAIN || "https://compo-fc-production.up.railway.app").replace(/\/$/, "");
 const STATE_FILE = path.join(DATA_DIR, "state.json");
+const PHOTO_DIR = path.join(DATA_DIR, "photos");
 const SEED_FILE = path.join(__dirname, "seed", "state.json");
 
 // ---------- Stockage ----------
@@ -203,7 +204,7 @@ const server = http.createServer(async (req, res) => {
       if (id === "photos") {
         if (AUTH_ON && userOf(req) !== "admin") return send(res, 403, { error: "réservé à l'admin" });
         const clean = {};
-        for (const [n, u] of Object.entries(data || {})) if (typeof n === "string" && n.length < 80 && typeof u === "string" && /^https:\/\/[^\s"'()<>]{4,600}$/.test(u)) clean[n] = u;
+        for (const [n, u] of Object.entries(data || {})) if (typeof n === "string" && n.length < 80 && typeof u === "string" && (/^https:\/\/[^\s"'()<>]{4,600}$/.test(u) || /^\/photos\/[a-f0-9]{20}\.(webp|png|jpg)$/.test(u))) clean[n] = u;
         store.docs.photos = clean;
         persist();
         return send(res, 200, { ok: true });
@@ -214,6 +215,24 @@ const server = http.createServer(async (req, res) => {
       persist();
       if (id === "league" || id === "book") store.meta.nextAt = 0; // recalcul de la prochaine journée
       return send(res, 200, { ok: true });
+    }
+    if (p === "/api/photo" && req.method === "POST") {
+      if (AUTH_ON && userOf(req) !== "admin") return send(res, 403, { error: "réservé à l'admin" });
+      const { data } = JSON.parse(await readBody(req, 3e6));
+      const m2 = /^data:image\/(webp|png|jpeg);base64,([A-Za-z0-9+/=]+)$/.exec(data || "");
+      if (!m2) return send(res, 400, { error: "image invalide" });
+      const buf = Buffer.from(m2[2], "base64");
+      if (buf.length > 1.5e6) return send(res, 413, { error: "image trop lourde" });
+      const ext = m2[1] === "jpeg" ? "jpg" : m2[1], id = crypto.createHash("sha1").update(buf).digest("hex").slice(0, 20);
+      fs.mkdirSync(PHOTO_DIR, { recursive: true });
+      fs.writeFileSync(path.join(PHOTO_DIR, id + "." + ext), buf);
+      return send(res, 200, { url: `/photos/${id}.${ext}` });
+    }
+    const pm = p.match(/^\/photos\/([a-f0-9]{20})\.(webp|png|jpg)$/);
+    if (pm && req.method === "GET") {
+      const f = path.join(PHOTO_DIR, pm[1] + "." + pm[2]);
+      if (!fs.existsSync(f)) return send(res, 404, { error: "introuvable" });
+      return sendFast(req, res, fs.readFileSync(f), pm[2] === "jpg" ? "image/jpeg" : "image/" + pm[2], "private, max-age=31536000, immutable");
     }
     if (p === "/api/tick" && req.method === "POST") { await runTick(true); return send(res, 200, { ok: true, meta: store.meta }); }
     if (p === "/api/test-slack" && req.method === "POST") { await slack("✅ Compo FC est bien connecté à ce canal."); return send(res, 200, { ok: true }); }

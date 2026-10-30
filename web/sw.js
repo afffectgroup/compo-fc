@@ -1,7 +1,7 @@
 // Service worker : app installable, ouverture instantanée et consultation hors ligne.
 // - Page, scripts et icônes : servis tout de suite depuis le cache, mis à jour en arrière-plan.
 // - Données (/api) : réseau d'abord, cache en secours hors ligne.
-const CACHE = "compo-fc-v2";
+const CACHE = "compo-fc-v3";
 const SHELL = ["/", "/shim.js", "/flags.js?v=1", "/manifest.webmanifest", "/favicon.ico", "/favicon-32.png", "/apple-touch-icon.png", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", e => {
@@ -35,7 +35,14 @@ self.addEventListener("fetch", e => {
   const key = r.mode === "navigate" ? "/" : r;
   e.respondWith(caches.match(key).then(hit => {
     const net = refresh(r, key).catch(() => hit);
-    if (hit) { e.waitUntil(net.then(() => {}, () => {})); return hit; }
+    if (hit) {
+      // Nouvelle version de l'app ? On prévient la page, qui se recharge d'elle-même.
+      e.waitUntil(net.then(res => {
+        const a = hit.headers.get("etag"), b = res && res.headers.get("etag");
+        if (key === "/" && a && b && a !== b) return self.clients.matchAll({ type: "window" }).then(cs => cs.forEach(c => c.postMessage({ type: "app-updated" })));
+      }, () => {}));
+      return hit;
+    }
     return net;
   }));
 });
