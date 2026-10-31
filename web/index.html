@@ -3487,17 +3487,23 @@ function simulate(H,A,date,opts){opts=opts||{};
 }
 
 // ---- Absences ----
-// Cartons jaunes : 3 jaunes sur une fenêtre de 5 journées de championnat = 1 match de suspension (le compteur repart alors de zéro)
-function absences(){const out={},yc={},yw={};if(!league||!league.results)return{out,yc,yw};
+// Cartons jaunes (règle Ligue 1 depuis 2025/26) : au 5e jaune en championnat = 1 match de suspension, puis le compteur repart de zéro.
+// Coupe (façon Coupe du monde) : 2 jaunes en coupe = suspendu au tour suivant ; compteur remis à zéro après les quarts.
+const YC_LIMIT=5,CUP_YC_LIMIT=2;
+function absences(){const out={},yc={},yw={},cyc={};if(!league||!league.results)return{out,yc,yw,cyc};
   const add=(n,from,to,type,why)=>{(out[n]||(out[n]=[])).push({from,to,type,why})};
   allByDay().forEach(({d,m,c,ri})=>{
-    (m.cards||[]).forEach(cd=>{if(c==="C"){if(cd.t!=="Y"){const nd=league.cup.rounds[ri+1];if(nd)add(cd.n,nd.day,nd.day,"susp","rouge en coupe")}return}
-      if(cd.t==="Y"){const w=(yw[cd.n]||[]).filter(x=>x>=d-4);w.push(d);yc[cd.n]=(yc[cd.n]||0)+1;
-        if(w.length>=3){add(cd.n,d+1,d+1,"susp","3 cartons jaunes en 5 matchs");yw[cd.n]=[]}else yw[cd.n]=w}else add(cd.n,d+1,d+(cd.d||1),"susp",cd.t==="Y2"?"expulsé (2 jaunes)":"carton rouge")});
+    if(c==="C"&&ri>0&&/^Demi/.test((league.cup.rounds[ri]||{}).name||"")){for(const k in cyc)if(cyc[k].reset!==ri){cyc[k]={n:0,reset:ri}}}
+    (m.cards||[]).forEach(cd=>{if(c==="C"){const nd=league.cup.rounds[ri+1];
+        if(cd.t!=="Y"){if(nd)add(cd.n,nd.day,nd.day,"susp","rouge en coupe")}
+        else{const s=cyc[cd.n]||(cyc[cd.n]={n:0});s.n++;if(s.n>=CUP_YC_LIMIT){if(nd)add(cd.n,nd.day,nd.day,"susp","2 cartons jaunes en coupe");s.n=0}}
+        return}
+      if(cd.t==="Y"){yw[cd.n]=(yw[cd.n]||0)+1;yc[cd.n]=(yc[cd.n]||0)+1;
+        if(yw[cd.n]>=YC_LIMIT){add(cd.n,d+1,d+1,"susp",YC_LIMIT+" cartons jaunes");yw[cd.n]=0}}else add(cd.n,d+1,d+(cd.d||1),"susp",cd.t==="Y2"?"expulsé (2 jaunes)":"carton rouge")});
     (m.inj||[]).forEach(i=>add(i.n,d+1,d+i.d,"inj","blessé"))});
-  return{out,yc,yw}}
-// Menacé de suspension : déjà 2 jaunes encore actifs dans la fenêtre de 5 journées qui inclut le prochain match
-function yellowThreat(n,k){if(!ABS||!ABS.yw||k==null||k<0)return false;return (ABS.yw[n]||[]).filter(x=>x>=k-4).length===2}
+  return{out,yc,yw,cyc}}
+// Menacé de suspension : à un jaune du seuil (4 en championnat)
+function yellowThreat(n,k){if(!ABS||!ABS.yw||k==null||k<0)return false;return (ABS.yw[n]||0)===YC_LIMIT-1}
 function nextRoundIdx(){if(!league||!league.schedule)return -1;return league.schedule.findIndex((_,k)=>!league.results[k])}
 let ABS=null;function refreshAbs(){if(league&&league.schedule)buildDerived();ABS=absences()}
 function statusOf(n,k){if(!ABS||k==null||k<0)return null;const l=ABS.out[n];if(!l)return null;const e=l.find(x=>x.from<=k&&k<=x.to);return e?{type:e.type,why:e.why,left:e.to-k+1}:null}
