@@ -71,7 +71,7 @@ const REPORT_JS = String.raw`
   function block(title,ms){
     const L=["*<{{APP}}|"+title+">*"];const done=new Set();let n=0;
     league.mine.forEach(mm=>{const m=ms.find(x=>x.hId===mm.id||x.aId===mm.id);if(!m||done.has(m))return;done.add(m);
-      if(n++)L.push("----------");L.push("• "+teamLine(m,mm.id));
+      if(n++)L.push("────────");L.push("• "+teamLine(m,mm.id));
       // Rouges et blessures de nos équipes, sur une ligne en dessous
       const sides=[m.hId,m.aId].map((id,i)=>[id,i?"a":"h"]).filter(([id])=>mineIds.has(id));
       sides.forEach(([id,s])=>{const ev=[];
