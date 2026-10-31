@@ -89,7 +89,8 @@ function mergeLeague(cur, inc) {
 // ---------- Slack ----------
 async function slack(text) {
   if (!SLACK_WEBHOOK_URL) { console.log("[slack désactivé]\n" + text); return; }
-  const link = APP_URL ? `\nLa suite sur ${APP_URL}/` : "";
+  text = text.split("{{APP}}").join(APP_URL + "/");
+  const link = "";
   const r = await fetch(SLACK_WEBHOOK_URL, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text: text + link }) });
   if (!r.ok) throw new Error("Slack " + r.status + " " + (await r.text()));
 }

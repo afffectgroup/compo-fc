@@ -56,18 +56,31 @@ const REPORT_JS = String.raw`
     if(reds.length||inj.length)out.push("   "+[...reds,...inj].join(" · "));
     return out;
   }
+  // Une ligne par équipe de la famille : « ✅ Victoire de Julien (2-1) contre Équipe IA 5 »
+  const first=n=>String(n||"").split(" ")[0];
+  function teamLine(m,id){
+    const home=m.hId===id,my=home?m.hs:m.as,op=home?m.as:m.hs,opName=home?m.aName:m.hName,me=first(home?m.hName:m.aName);
+    let win=my>op?1:my<op?-1:0;
+    if(!win&&m.win)win=(m.win==="h")===home?1:-1;
+    const lab=win>0?"✅ Victoire":win<0?"❌ Défaite":"🤝 Nul";
+    let sc=my+"-"+op;
+    if(m.pens){const ph=m.pens.h.filter(x=>x[1]).length,pa=m.pens.a.filter(x=>x[1]).length;sc+=", "+(home?ph+"-"+pa:pa+"-"+ph)+" aux t.a.b."}else if(m.et)sc+=" a.p.";
+    const derby=mineIds.has(home?m.aId:m.hId);
+    return (derby?"⚔️ Derby · ":"")+lab+" de "+me+" ("+sc+") contre "+(derby?first(opName):opName);
+  }
+  function block(title,ms){
+    const L=["*<{{APP}}|"+title+">*"];const done=new Set();let n=0;
+    league.mine.forEach(mm=>{const m=ms.find(x=>x.hId===mm.id||x.aId===mm.id);if(!m||done.has(m))return;done.add(m);
+      if(n++)L.push("────────");L.push(teamLine(m,mm.id))});
+    return n?L.join("\n"):"";
+  }
   function results(D){
-    const L=[];
-    const mine=ms=>(ms||[]).filter(m=>mineIds.has(m.hId)||mineIds.has(m.aId));
-    const lr=league.results[D];
-    if(lr){L.push("*⚽ Journée "+(D+1)+"/"+league.schedule.length+" · "+fmtSlot(D)+"*");mine(lr).forEach(m=>L.push(...matchLines(m,false)))}
-    return L.join("\n");
+    const lr=league.results[D];if(!lr)return "";
+    return block("⚽ Journée "+(D+1)+" à "+slotHour(D)+"h",lr);
   }
   function cupResults(i){
     const R=league.cup.rounds[i],res=league.cup.results[i];if(!res)return "";
-    const my=res.filter(m=>mineIds.has(m.hId)||mineIds.has(m.aId));if(!my.length)return "";
-    const L=["*🏆 Coupe · "+R.name+" · "+fmtDate(dstr(cupDate(R.day)))+" "+CUP_HOUR+"h*"];my.forEach(m=>L.push(...matchLines(m,false)));
-    return L.join("\n");
+    return block("🏆 Coupe · "+R.name+" à "+CUP_HOUR+"h",res);
   }
   function reminder(k){
     refreshAbs();setMods(k);
