@@ -4049,6 +4049,23 @@ document.getElementById("imgBtn").onclick=async e=>{
 <script>
 // ---- Couche UI de la version hébergée ----
 (function(){
+  // Infobulles maison : on reprend le texte des attributs title et on l'affiche dans le style de l'app
+  if(matchMedia("(hover:hover)").matches){
+    const tip=document.createElement("div");tip.className="tip";tip.setAttribute("role","tooltip");document.body.append(tip);let cur=null,timer=0;
+    const show=elx=>{const txt=elx.dataset.tip;if(!txt){return}
+      const parts=txt.split(" — ");tip.replaceChildren();
+      if(parts.length>1){const b=document.createElement("b");b.textContent=parts[0];tip.append(b);parts.slice(1).join(" — ").split(" · ").forEach(s=>{const sp=document.createElement("span");sp.textContent=s;tip.append(sp)})}
+      else tip.textContent=txt;
+      const r=elx.getBoundingClientRect();tip.style.left="0px";tip.style.top="0px";tip.classList.add("on");
+      const tw=tip.offsetWidth,th=tip.offsetHeight;let x=r.left+r.width/2-tw/2,y=r.top-th-8;if(y<70)y=r.bottom+8;
+      x=Math.max(8,Math.min(innerWidth-tw-8,x));tip.style.left=x+"px";tip.style.top=y+"px"};
+    document.addEventListener("mouseover",e=>{const t=e.target.closest&&e.target.closest("[title],[data-tip]");if(!t||t===cur)return;
+      if(t.hasAttribute("title")){t.dataset.tip=t.getAttribute("title");t.removeAttribute("title")}
+      cur=t;clearTimeout(timer);timer=setTimeout(()=>show(t),250)});
+    document.addEventListener("mouseout",e=>{if(!cur)return;const to=e.relatedTarget;if(to&&cur.contains(to))return;cur=null;clearTimeout(timer);tip.classList.remove("on")});
+    addEventListener("scroll",()=>{tip.classList.remove("on")},{passive:true});
+    document.addEventListener("pointerdown",()=>{clearTimeout(timer);tip.classList.remove("on")});
+  }
   document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;const ov=document.getElementById("overlay");if(ov&&!ov.hidden&&typeof closePicker==="function"){closePicker();return}
     if(typeof spOpen!=="undefined"&&spOpen){spOpen=null;renderSetPieces()}});
   const ME=window.ME&&window.ME!=="admin"?window.ME:null;
@@ -4204,6 +4221,12 @@ document.getElementById("imgBtn").onclick=async e=>{
 .ph-row input:focus{border-color:var(--accent);outline:none}
 .ph-row.bad input{border-color:#e0735a}
 @media (max-width:600px){.ph-row{grid-template-columns:48px minmax(0,1fr) auto auto}.ph-row input{grid-column:1/-1}}
+/* ---- Infobulles de l'app (à la place de celles du navigateur) ---- */
+.tip{position:fixed;z-index:60;max-width:280px;padding:8px 11px;border-radius:10px;background:var(--panel);color:var(--fg);border:1px solid var(--line);
+  box-shadow:0 10px 28px rgba(0,0,0,.35);font-size:13px;line-height:1.4;pointer-events:none;opacity:0;transform:translateY(4px);transition:opacity .12s,transform .12s}
+.tip.on{opacity:1;transform:none}
+.tip b{display:block;font-family:var(--display);font-weight:800;font-size:15px;text-transform:uppercase;letter-spacing:.02em;margin-bottom:2px}
+.tip span{display:block;color:var(--muted)}
 /* ---- Moral des joueurs ---- */
 .card .mood{position:absolute;left:45.5%;top:8%;transform:translateX(-50%);width:16%;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;z-index:2;box-shadow:0 0 0 2px rgba(0,0,0,.15)}
 .card .mood svg{position:static;inset:auto;width:70%;height:70%}
