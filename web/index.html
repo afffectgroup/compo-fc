@@ -98,7 +98,8 @@ body.dragging-on{-webkit-user-select:none;user-select:none;cursor:grabbing}
 
 .card{width:100%;aspect-ratio:3/4;border-radius:10px 10px 14px 14px;position:relative;color:var(--card-ink);overflow:hidden;
   box-shadow:0 4px 10px rgba(0,0,0,.35);transition:transform .15s}
-.card.gold{background:linear-gradient(160deg,var(--gold-a),var(--gold-b))}
+.card.gold{background:linear-gradient(115deg,rgba(255,255,255,0) 28%,rgba(255,255,255,.55) 42%,rgba(255,255,255,0) 56%),linear-gradient(160deg,#fff2a8,#f0c53a 50%,#c08f12)}
+.card.dgold{background:linear-gradient(160deg,#cdab55,#8f6a1f)}
 .card.silver{background:linear-gradient(160deg,var(--silver-a),var(--silver-b))}
 .card.bronze{background:linear-gradient(160deg,var(--bronze-a),var(--bronze-b))}
 .card.icon{background:linear-gradient(160deg,var(--icon-a),var(--icon-b))}
@@ -369,7 +370,7 @@ body.view-ai .team-name{pointer-events:none}
 .row:hover{background:var(--panel-2);border-color:var(--line)}
 .row.used{opacity:.45}
 .row .r{font-family:var(--display);font-weight:800;font-size:24px;text-align:center;border-radius:6px;color:var(--card-ink)}
-.row .r.gold{background:var(--gold-a)} .row .r.silver{background:var(--silver-a)} .row .r.bronze{background:var(--bronze-a)} .row .r.icon{background:var(--icon-a)}
+.row .r.gold{background:#f6d45a} .row .r.dgold{background:#c9a650} .row .r.silver{background:var(--silver-a)} .row .r.bronze{background:var(--bronze-a)} .row .r.icon{background:var(--icon-a)}
 .row .mini{position:relative;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-weight:800;color:#fff;background-size:cover;background-position:center}
 .row .who b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .row .who span{font-size:12px;color:var(--muted)}
@@ -2978,7 +2979,7 @@ async function initCloud(){
 }
 function savePhotos(){try{localStorage.setItem(PKEY,JSON.stringify(photos))}catch(e){toast("Photo trop lourde pour être gardée")}}
 
-const tierOf = p => p.icon?"icon":p.ovr>=85?"gold":p.ovr>=75?"silver":"bronze";
+const tierOf = p => p.icon?"icon":p.ovr>=85?"gold":p.ovr>=80?"dgold":p.ovr>=70?"silver":"bronze";
 const isYoung = p => !p.icon && p.age>0 && p.age<=21;
 const initials = n => n.replace(/^(Lucas|Theo|João|Nico|Rico|Lewis|Reece|Rúben|Frenkie|Bruno|Bernardo|Luis|Diogo|Joan|Archie|Mateus|Lennart|Jonathan|Samu|Rodrigo|Héctor|Lamine|Cristiano)\s/,"").split(/[\s-]/).map(w=>w[0]).join("").slice(0,2).toUpperCase();
 function clubColor(c){let h=0;for(const ch of c)h=(h*31+ch.charCodeAt(0))%360;return `hsl(${h} 45% 34%)`}
@@ -3978,7 +3979,7 @@ showView(location.hash.slice(1));
 initCloud();
 
 // ---- Export image ----
-const TIER_COL={gold:["#f3dc8a","#b98f2c"],silver:["#e4e8ec","#8d98a3"],bronze:["#e2b28a","#8a5a37"],icon:["#fbf6e6","#c9b27a"]};
+const TIER_COL={gold:["#fff2a8","#c08f12"],dgold:["#cdab55","#8f6a1f"],silver:["#e4e8ec","#8d98a3"],bronze:["#e2b28a","#8a5a37"],icon:["#fbf6e6","#c9b27a"]};
 const imgCache={};
 function loadImg(src){if(imgCache[src])return imgCache[src];return imgCache[src]=new Promise(res=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>res(null);i.src=src})}
 function rr(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
