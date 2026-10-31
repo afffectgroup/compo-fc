@@ -153,6 +153,9 @@ const REPORT_JS = String.raw`
     league.schedule.forEach((_,k)=>{const t=roundDate(k).getTime();if(t>afterTime)ev.push({t,lab:"J"+(k+1)+" à "+slotHour(k)+"h"})});
     if(league.cup&&stillInCup(afterTime))league.cup.rounds.forEach((R,i)=>{const t=cupDate(R.day).getTime();if(t>afterTime)ev.push({t,lab:R.name+" à "+CUP_HOUR+"h"})});
     if(!ev.length)return "";ev.sort((a,b)=>a.t-b.t);
+    const bd=typeof breakDay==="function"?breakDay():null,wd=t=>new Date(t).toLocaleDateString("fr-FR",{weekday:"long"});
+    if(bd&&afterTime<bd.getTime()&&ev[0].t>bd.getTime())
+      return "→ Trêve de mi-saison "+wd(bd.getTime())+" : aucun match, tout le monde récupère à 100 % (fatigue et blessures)\n→ Prochain match : "+ev[0].lab.replace(" à "," "+wd(ev[0].t)+" à ");
     return "→ Prochain match : "+ev[0].lab;
   }
   function results(D){

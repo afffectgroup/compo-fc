@@ -430,6 +430,7 @@ body.view-ai .team-name{pointer-events:none}
     <div class="controls">
       <select id="formation" class="btn" aria-label="Formation"></select>
       <select id="tactic" class="btn" aria-label="Tactique"></select>
+      <button class="btn" id="restBtn" type="button" hidden title="Propose le meilleur onze pour le prochain match en tenant compte de la fatigue, de la forme, des blessures et des suspensions"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v4h4"/><path d="M12 7v5l3 2"/></svg><span>Onze reposé</span></button>
       <button class="btn" id="imgBtn" hidden title="Exporter la compo en image"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span class="hide-s">Image</span></button>
       <button class="btn plain danger" id="delTeam">Supprimer</button>
     </div>
@@ -3504,7 +3505,7 @@ function absences(){const out={},yc={},yw={},cyc={};if(!league||!league.results)
         return}
       if(cd.t==="Y"){yw[cd.n]=(yw[cd.n]||0)+1;yc[cd.n]=(yc[cd.n]||0)+1;
         if(yw[cd.n]>=YC_LIMIT){add(cd.n,d+1,d+1,"susp",YC_LIMIT+" cartons jaunes");yw[cd.n]=0}}else add(cd.n,d+1,d+(cd.d||1),"susp",cd.t==="Y2"?"expulsé (2 jaunes)":"carton rouge")});
-    (m.inj||[]).forEach(i=>add(i.n,d+1,d+i.d,"inj","blessé"))});
+    (m.inj||[]).forEach(i=>{const BK=breakK();let to=d+i.d;if(d<BK&&to>=BK)to=BK-1;if(to>=d+1)add(i.n,d+1,to,"inj","blessé")})});
   return{out,yc,yw,cyc}}
 // Menacé de suspension : à un jaune du seuil (4 en championnat)
 function yellowThreat(n,k){if(!ABS||!ABS.yw||k==null||k<0)return false;return (ABS.yw[n]||0)===YC_LIMIT-1}
@@ -3628,7 +3629,7 @@ function slotTime(d,c){return (c==="C"&&typeof cupDate==="function"?cupDate(d):r
 // Jouer tous les matchs sans repos fait passer un joueur dans le rouge (< 80 %), une rotation régulière le garde au vert.
 function evTime(day){const cupHere=league.cup&&league.cup.rounds&&league.cup.rounds.some(r=>r.day===day);return (cupHere&&(league.results[day]||!(league.schedule&&league.schedule[day]))?cupDate(day):roundDate(day)).getTime()}
 function conditionOf(n,day){const H=DER.hist[n];if(!H||!league||!league.start)return 100;const t0=evTime(day);let acute=0,chronic=0;
-  H.forEach(x=>{const hrs=(t0-slotTime(x.d,x.c))/36e5,w=x.mins/90;if(hrs<=0||hrs>192)return;if(hrs<=96)acute+=w*Math.exp(-hrs/18);chronic+=w*Math.exp(-hrs/60)});
+  const BK=breakK();H.forEach(x=>{if(day>=BK&&x.d<BK)return;const hrs=(t0-slotTime(x.d,x.c))/36e5,w=x.mins/90;if(hrs<=0||hrs>192)return;if(hrs<=96)acute+=w*Math.exp(-hrs/18);chronic+=w*Math.exp(-hrs/60)});
   return Math.round(Math.max(45,Math.min(100,100-11*acute-1.5*chronic)))}
 // Mental : moral d'équipe, confiance, frustration, manque de rythme. Effet plafonné à ±1,5.
 function teamMorale(id,day){if(!league||!id)return{v:0,why:""};const t0=roundDate(day).getTime(),L=[];
@@ -3754,7 +3755,10 @@ function lgTeam(id){if(id.startsWith("ai"))return league.ai.find(t=>t.id===id);r
 const gkOf=t=>{const f=FORMATIONS[t.formation]||FORMATIONS["4-3-3"];const i=f.findIndex(x=>x[0]==="GK");return t.xi[i]||null};
 const SLOT_HOURS=[9,14];const slotHour=k=>SLOT_HOURS[((k%2)+2)%2];
 var MAXSUB=5;
-function roundDate(k){const d=new Date(league.start+"T00:00:00");d.setDate(d.getDate()+Math.floor(k/2));d.setHours(slotHour(k),0,0,0);return d}
+// Trêve de mi-saison : une journée entière sans match après la phase aller (J10 sur 18), récupération complète
+function breakK(){if(!league||!league.schedule||league.schedule.length<8)return Infinity;return 2*Math.ceil(league.schedule.length/4)}
+function breakDay(){const B=breakK();if(!isFinite(B))return null;const d=new Date(league.start+"T00:00:00");d.setDate(d.getDate()+Math.floor((B-1)/2)+1);return d}
+function roundDate(k){const d=new Date(league.start+"T00:00:00");d.setDate(d.getDate()+(k>=breakK()?1:0)+Math.floor(k/2));d.setHours(slotHour(k),0,0,0);return d}
 // La coupe se joue le soir à 21h, le même jour que la journée de championnat indiquée par R.day
 const CUP_HOUR=21;
 function cupDate(k){const d=roundDate(k);d.setHours(CUP_HOUR,0,0,0);return d}
@@ -4350,5 +4354,37 @@ html[data-theme="light"]{background:radial-gradient(1200px 520px at 50% -180px,r
 [data-theme="light"] .ai-banner{background:var(--panel-2)}
 [data-theme="light"] .abs-banner.alert{background:#fff4f1}
 </style>
+<script>
+(function(){
+  let undo=null,undoT=null;
+  function sc(n,role,k){const p=BY[n];let s=effOvr(p,role);if(k<0)return s;const c=conditionOf(n,k),f=formOf(n,k),md=moodOf(n,k,state);
+    s+=Math.max(-3,Math.min(3,(f?f.bonus:0)+md.v-Math.min(2.5,(100-c)/10*.6)));return s-Math.max(0,80-c)*.08}
+  function bestXI(){const k=nextDay();refreshAbs();const f=FORMATIONS[state.formation]||FORMATIONS["4-3-3"],roles=f.map(x=>x[0]);
+    const all=[...new Set([...state.xi,...state.bench].filter(n=>n&&BY[n]))],ok=all.filter(n=>!(k>=0&&statusOf(n,k)));
+    const S={};ok.forEach(n=>S[n]=roles.map(r=>sc(n,r,k)));const asg=Array(roles.length).fill(null),used=new Set();
+    for(let t=0;t<roles.length;t++){let b=null;roles.forEach((_,i)=>{if(asg[i])return;ok.forEach(n=>{if(!used.has(n)&&(!b||S[n][i]>b.v))b={i,n,v:S[n][i]}})});if(!b)break;asg[b.i]=b.n;used.add(b.n)}
+    const val=(n,i)=>n?S[n][i]:-99;let better=true,guard=0;
+    while(better&&guard++<50){better=false;
+      for(let i=0;i<asg.length;i++)for(let j=i+1;j<asg.length;j++)if(val(asg[j],i)+val(asg[i],j)>val(asg[i],i)+val(asg[j],j)+1e-9){[asg[i],asg[j]]=[asg[j],asg[i]];better=true}
+      for(let i=0;i<asg.length;i++)ok.forEach(n=>{if(!asg.includes(n)&&val(n,i)>val(asg[i],i)+1e-9){asg[i]=n;better=true}})}
+    const rest=all.filter(n=>!asg.includes(n)),best=n=>Math.max(...roles.map((_,i)=>S[n]?S[n][i]:-99));
+    const avail=rest.filter(n=>S[n]).sort((a,b)=>best(b)-best(a)),gk=avail.find(n=>BY[n].pos.includes("GK"));
+    const bench=[...(gk?[gk]:[]),...avail.filter(n=>n!==gk),...rest.filter(n=>!S[n])];
+    while(bench.length<state.bench.length)bench.push(null);
+    return{xi:asg,bench:bench.slice(0,Math.max(state.bench.length,bench.filter(Boolean).length)),k}}
+  function apply(){if(RO())return;const before={xi:[...state.xi],bench:[...state.bench],captain:state.captain,takers:{...(state.takers||{})}};
+    const B=bestXI();const inn=B.xi.filter(n=>n&&!before.xi.includes(n)),out=before.xi.filter(n=>n&&!B.xi.includes(n));
+    const moved=B.xi.some((n,i)=>n!==before.xi[i]);
+    if(!moved){toast("Ton onze est déjà le meilleur pour ce match",2600);return}
+    state.xi=B.xi;state.bench=B.bench;if(!state.captain||!state.xi.includes(state.captain)){const c=state.xi.filter(Boolean).sort((a,b)=>BY[b].ovr-BY[a].ovr)[0];state.captain=c||null}
+    if(!state.takers)state.takers={};for(const t in state.takers)if(state.takers[t]&&!state.xi.includes(state.takers[t]))state.takers[t]=null;autoTakers();
+    undo=before;save();render();clearTimeout(undoT);undoT=setTimeout(()=>{undo=null;render()},12000);
+    toast(inn.length?`Entrent : ${inn.map(shortName).join(", ")} · Sortent : ${out.map(shortName).join(", ")}`:"Postes réorganisés pour ce match",5000)}
+  function back(){if(!undo||RO())return;Object.assign(state,{xi:undo.xi,bench:undo.bench,captain:undo.captain,takers:undo.takers});undo=null;clearTimeout(undoT);save();render();toast("Compo précédente rétablie")}
+  const rb=document.getElementById("restBtn");rb.onclick=()=>undo?back():apply();
+  const _r=render;render=function(){_r.apply(this,arguments);try{const inLg=league&&league.mine&&league.mine.some(m=>m.id===state.id);
+    rb.hidden=RO()||!inLg||nextDay()<0;rb.querySelector("span").textContent=undo?"Annuler":"Onze reposé";rb.classList.toggle("primary",!!undo)}catch(e){rb.hidden=true}};
+})();
+</script>
 </body>
 </html>
