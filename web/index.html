@@ -421,6 +421,9 @@ body.view-ai .team-name{pointer-events:none}
 .gv-one{display:inline-grid;place-items:center;width:20px;height:20px;padding:0;margin-right:5px;border-radius:50%;border:1px solid var(--line);background:var(--panel-2);color:var(--fg);cursor:pointer;vertical-align:-4px}
 .gv-one svg{width:10px;height:10px;fill:currentColor}
 .gv-one:hover{background:var(--accent);color:var(--accent-ink,#08210f);border-color:var(--accent)}
+.gv-snd{display:inline-flex;align-items:center;gap:6px}
+.gv-snd svg{width:16px;height:16px;fill:currentColor;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.gv-snd.on{border-color:var(--accent)}
 </style>
 
 <div class="appbar">
@@ -4474,16 +4477,40 @@ html[data-theme="light"]{background:radial-gradient(1200px 520px at 50% -180px,r
     ball=ball.map(tf);P.forEach(p=>p.tr=p.tr.map(tf));
     return {ball,P,shotT,kind,end:shotT+2.6,mir}}
 
+  // ---- Son (synthétisé, aucun fichier) : sifflet, frappes, filet, public. Coupé par défaut.
+  let AC=null,bus=null,NB=null;const sndOn=()=>{try{return localStorage.getItem("compo-fc-sound")==="1"}catch(e){return false}};
+  function ac(){if(!AC){const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;AC=new C();
+      NB=AC.createBuffer(1,AC.sampleRate*2,AC.sampleRate);const d=NB.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}
+    if(AC.state==="suspended")AC.resume();return AC}
+  function stopSnd(){if(bus){const b=bus;bus=null;try{b.gain.cancelScheduledValues(AC.currentTime);b.gain.setTargetAtTime(0,AC.currentTime,.05);setTimeout(()=>b.disconnect(),400)}catch(e){}}}
+  function noise(t,dur,type,f,q,g0,att,rel,f2){const s=AC.createBufferSource();s.buffer=NB;s.loop=true;const fl=AC.createBiquadFilter();fl.type=type;fl.frequency.setValueAtTime(f,t);if(f2)fl.frequency.exponentialRampToValueAtTime(f2,t+dur);fl.Q.value=q;
+    const g=AC.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(g0,t+att);g.gain.setTargetAtTime(0,t+dur-rel,rel/3);s.connect(fl).connect(g).connect(bus);s.start(t);s.stop(t+dur+rel)}
+  function kick(t,v){const o=AC.createOscillator(),g=AC.createGain();o.type="sine";o.frequency.setValueAtTime(150,t);o.frequency.exponentialRampToValueAtTime(45,t+.12);
+    g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.9*v,t+.005);g.gain.exponentialRampToValueAtTime(.0001,t+.16);o.connect(g).connect(bus);o.start(t);o.stop(t+.2);
+    noise(t,.04,"highpass",1800,.7,.35*v,.002,.03)}
+  function whistle(t,dur){const o=AC.createOscillator(),o2=AC.createOscillator(),l=AC.createOscillator(),lg=AC.createGain(),g=AC.createGain();
+    o.frequency.value=2750;o2.frequency.value=2950;l.frequency.value=32;lg.gain.value=90;l.connect(lg);lg.connect(o.frequency);lg.connect(o2.frequency);
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.09,t+.02);g.gain.setValueAtTime(.09,t+dur-.05);g.gain.linearRampToValueAtTime(0,t+dur);
+    o.connect(g);o2.connect(g);g.connect(bus);[o,o2,l].forEach(x=>{x.start(t);x.stop(t+dur+.05)})}
+  function soundFor(sc){stopSnd();if(!sndOn())return;const A=ac();if(!A)return;bus=A.createGain();bus.gain.value=.8;bus.connect(A.destination);const T=A.currentTime+.05;
+    noise(T,sc.end+.5,"bandpass",700,.6,.05,.6,1.2);                       // ambiance de stade
+    if(sc.kind==="pen"||sc.kind==="fk")whistle(T+.25,.45);
+    const B=sc.ball;for(let i=1;i<B.length;i++){const a=B[i-1],b=B[i];if(Math.hypot(b[1]-a[1],b[2]-a[2])>.5&&b[0]-a[0]>.05){const shot=i===B.length-1;kick(T+a[0],shot?1:.45)}}
+    const s=T+sc.shotT;noise(s,.35,"highpass",2400,.5,.28,.01,.25);          // filet
+    noise(s+.05,3,"bandpass",900,.5,.32,.35,1.6,1300);noise(s+.05,3,"lowpass",500,.4,.25,.5,1.6)} // clameur
   let ov=null,raf=0;
   window.playGoals=function(m,start,all){
     const goals=(m.goals||[]).map((g,i)=>({g,i})).sort((a,b)=>a.g.m-b.g.m||(a.g.st||"").localeCompare(b.g.st||""));if(!goals.length)return;
     let pos=Math.max(0,goals.findIndex(x=>x.i===start));if(pos<0)pos=0;
     if(ov)ov.remove();ov=document.createElement("div");ov.className="overlay gv";const sh=el("div","sheet gv-sheet");ov.append(sh);
-    const hd=el("div","gv-head"),ttl=el("b"),cnt=el("span","gv-cnt"),x=el("button","btn small","Fermer");x.type="button";hd.append(ttl,cnt,x);
+    const hd=el("div","gv-head"),ttl=el("b"),cnt=el("span","gv-cnt"),x=el("button","btn small","Fermer");x.type="button";
+    const sb=el("button","btn small gv-snd");sb.type="button";const paintS=()=>{const on=sndOn();sb.innerHTML=on?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none"/></svg><span>Son</span>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9l5 6M22 9l-5 6" fill="none"/></svg><span>Son coupé</span>';sb.setAttribute("aria-pressed",on);sb.classList.toggle("on",on)};paintS();
+    sb.onclick=()=>{const on=!sndOn();try{localStorage.setItem("compo-fc-sound",on?"1":"0")}catch(e){}paintS();if(on){ac();go(pos)}else stopSnd()};
+    hd.append(ttl,cnt,sb,x);
     const cv=document.createElement("canvas");cv.className="gv-cv";const cap=el("div","gv-cap");
     const bar=el("div","gv-bar"),pv=el("button","btn small","‹ Précédent"),rp=el("button","btn small","Rejouer"),nx=el("button","btn small primary","Suivant ›");[pv,rp,nx].forEach(b=>{b.type="button";bar.append(b)});
     sh.append(hd,cv,cap,bar);document.body.append(ov);
-    const close=()=>{cancelAnimationFrame(raf);ov.remove();ov=null;document.removeEventListener("keydown",kd)};
+    const close=()=>{cancelAnimationFrame(raf);stopSnd();ov.remove();ov=null;document.removeEventListener("keydown",kd)};
     const kd=e=>{if(e.key==="Escape")close();if(e.key==="ArrowRight")go(pos+1);if(e.key==="ArrowLeft")go(pos-1)};document.addEventListener("keydown",kd);
     x.onclick=close;ov.onclick=e=>{if(e.target===ov)close()};
     const nm=id=>{const t=lgTeam(id);return t?t.name.replace(/^Équipe /,""):"?"};
@@ -4496,9 +4523,9 @@ html[data-theme="light"]{background:radial-gradient(1200px 520px at 50% -180px,r
       const typ=g.pen?" sur penalty":g.og?" contre son camp":g.fk?" sur coup franc direct":g.ck?" de la tête sur corner":"";
       cap.innerHTML="";const b1=el("div","gv-c1");b1.append(el("b",null,`${g.m}'${g.st||""}`),document.createTextNode(` ${g.n}${typ}`));
       const b2=el("div","gv-c2",`${g.a&&!g.og?(g.ck?"Corner de ":"Passe de ")+g.a+" · ":""}${nm(m.hId)} ${hs}-${as} ${nm(m.aId)}`);cap.append(b1,b2);cap.classList.remove("on");
-      cancelAnimationFrame(raf);if(reduce){draw(sc.shotT+1.2);cap.classList.add("on")}else raf=requestAnimationFrame(loop)}
+      cancelAnimationFrame(raf);if(reduce){stopSnd();draw(sc.shotT+1.2);cap.classList.add("on")}else{soundFor(sc);t0=performance.now()+50;raf=requestAnimationFrame(loop)}}
     pv.onclick=()=>{auto=false;go(pos-1)};nx.onclick=()=>{auto=false;go(pos+1)};rp.onclick=()=>{auto=false;go(pos)};
-    function loop(now){const t=(now-t0)/1000;draw(t);if(t>sc.shotT+.5)cap.classList.add("on");
+    function loop(now){const t=Math.max(0,(now-t0)/1000);draw(t);if(t>sc.shotT+.5)cap.classList.add("on");
       if(t<sc.end)raf=requestAnimationFrame(loop);else if(auto&&pos<goals.length-1)go(pos+1)}
     const ctx=cv.getContext("2d");let W=0,Hh=0,k=1,dpr=1;
     // caméra sur la moitié de terrain où se joue l'action
