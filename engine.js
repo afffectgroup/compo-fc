@@ -157,7 +157,7 @@ const REPORT_JS = String.raw`
   }
   function results(D){
     const lr=league.results[D];if(!lr)return "";
-    const txt=block("⚽ Journée "+(D+1)+" à "+slotHour(D)+"h",lr,D,null),nx=nextLine(roundDate(D).getTime());
+    const txt=block("Journée "+(D+1)+" à "+slotHour(D)+"h",lr,D,null),nx=nextLine(roundDate(D).getTime());
     return txt&&nx?txt+"\n\n"+nx:txt;
   }
   function cupResults(i){
