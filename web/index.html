@@ -4606,8 +4606,58 @@ html{background:var(--bg)!important}
 .pstat span{font-size:clamp(8.5px,1.4vw,10px)!important}
 .mc-sum span{font-size:13px;color:var(--muted)}.mc-sum span b{color:var(--fg);font-weight:700;margin-right:4px}
 .group{color:var(--muted)!important;font-family:var(--body)!important;font-size:13px!important}
-.lg-seg button.on,.seg button.on{box-shadow:none}
 [data-theme="light"] .form i,[data-theme="light"] .ofm,[data-theme="light"] .res{color:#fff!important}
+
+/* ===== Volume et relief : un système d'élévation à 3 niveaux ===== */
+:root:not([data-theme="light"]){
+  --hi:rgba(255,255,255,.06); --sh:rgba(0,0,0,.34);
+  --e1:inset 0 1px 0 var(--hi),0 1px 2px rgba(0,0,0,.35),0 4px 12px rgba(0,0,0,.22);
+  --e2:inset 0 1px 0 rgba(255,255,255,.08),0 2px 4px rgba(0,0,0,.35),0 12px 28px rgba(0,0,0,.32);
+  --e3:inset 0 1px 0 rgba(255,255,255,.1),0 8px 16px rgba(0,0,0,.35),0 24px 60px rgba(0,0,0,.45);
+  --well:inset 0 2px 4px rgba(0,0,0,.35),inset 0 0 0 1px rgba(0,0,0,.15);
+}
+[data-theme="light"]{
+  --hi:rgba(255,255,255,.9); --sh:rgba(18,32,48,.12);
+  --e1:inset 0 1px 0 #fff,0 1px 2px rgba(18,32,48,.1),0 6px 16px rgba(18,32,48,.08);
+  --e2:inset 0 1px 0 #fff,0 2px 4px rgba(18,32,48,.1),0 14px 32px rgba(18,32,48,.14);
+  --e3:0 8px 16px rgba(18,32,48,.12),0 24px 60px rgba(18,32,48,.18);
+  --well:inset 0 2px 4px rgba(18,32,48,.08),inset 0 0 0 1px rgba(18,32,48,.04);
+}
+/* niveau 1 : blocs de page */
+.box,.nextbar{box-shadow:var(--e1)!important;background:linear-gradient(180deg,color-mix(in srgb,var(--panel) 100%,#fff 3%),var(--panel))}
+[data-theme="light"] .box,[data-theme="light"] .nextbar{background:var(--panel)}
+.appbar{box-shadow:0 1px 0 var(--line),0 8px 24px var(--sh)}
+/* niveau 2 : éléments posés dessus */
+.mine-card{box-shadow:var(--e2)!important}
+.ai-card,.rrow{box-shadow:var(--e1);transition:transform .15s,box-shadow .15s}
+@media (hover:hover){.ai-card:hover,.rrow:hover{transform:translateY(-2px);box-shadow:var(--e2)}}
+.mine-card .mc-rank b{text-shadow:0 2px 0 rgba(0,0,0,.25)!important}
+/* creux : pistes de sélection, champs */
+.seg,.views{box-shadow:var(--well)}
+.seg button.on{box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 2px 6px rgba(0,0,0,.25)}
+.views a.on{box-shadow:0 1px 0 rgba(255,255,255,.2) inset,0 2px 6px rgba(0,0,0,.3)}
+/* boutons tactiles : lumière en haut, ombre en bas, enfoncés au clic */
+.btn{box-shadow:inset 0 1px 0 var(--hi),0 1px 0 rgba(0,0,0,.25),0 2px 6px rgba(0,0,0,.15);transition:transform .08s,box-shadow .08s}
+.btn:active{transform:translateY(1px);box-shadow:inset 0 2px 4px rgba(0,0,0,.25)}
+.btn.primary{box-shadow:inset 0 1px 0 rgba(255,255,255,.3),inset 0 -2px 0 rgba(0,0,0,.18),0 3px 10px color-mix(in srgb,var(--accent) 35%,transparent)}
+select.btn{box-shadow:var(--well)}
+/* le terrain : profondeur, vignette et projecteurs */
+.pitch{box-shadow:inset 0 0 80px rgba(0,0,0,.38),inset 0 2px 0 rgba(255,255,255,.08),0 2px 4px rgba(0,0,0,.3),0 18px 40px rgba(0,0,0,.35)!important}
+.pitch::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;background:radial-gradient(90% 55% at 50% 0%,rgba(255,255,255,.07),transparent 60%),radial-gradient(90% 55% at 50% 100%,rgba(255,255,255,.05),transparent 60%)}
+/* cartes joueurs : biseau et ombre portée */
+.card{box-shadow:inset 0 2px 0 rgba(255,255,255,.45),inset 0 -3px 0 rgba(0,0,0,.18),inset 0 0 0 1px rgba(0,0,0,.08),0 3px 0 rgba(0,0,0,.18),0 8px 16px rgba(0,0,0,.35)}
+.slot:hover .card{box-shadow:inset 0 2px 0 rgba(255,255,255,.45),inset 0 -3px 0 rgba(0,0,0,.18),0 4px 0 rgba(0,0,0,.18),0 14px 24px rgba(0,0,0,.4)}
+.card.hdj{box-shadow:inset 0 0 0 2px #c9a34a,inset 0 2px 0 rgba(255,255,255,.15),0 3px 0 rgba(0,0,0,.25),0 8px 16px rgba(0,0,0,.4)!important}
+.card .ovr,.card .pn{text-shadow:0 1px 0 rgba(255,255,255,.35)}
+.card.hdj .ovr,.card.hdj .pn,.card.inform .ovr,.card.inform .pn{text-shadow:0 1px 0 rgba(0,0,0,.5)}
+.card .flag{box-shadow:0 1px 2px rgba(0,0,0,.35)}
+/* titres : léger relief */
+:root:not([data-theme="light"]) .lg-title,:root:not([data-theme="light"]) .team-name,:root:not([data-theme="light"]) .une-h{text-shadow:0 2px 0 rgba(0,0,0,.35)}
+/* pastilles : petit volume */
+.form i,.ofm,.res{box-shadow:inset 0 1px 0 rgba(255,255,255,.3),inset 0 -1px 0 rgba(0,0,0,.15)}
+/* fenêtres : niveau 3 */
+.rv-card,.sheet,.gv-sheet{box-shadow:var(--e3)!important}
+.bottomnav{box-shadow:0 -1px 0 var(--line),0 -8px 24px var(--sh)}
 </style>
 <script>
 /* ---- Buts en motion design : ralenti 2D généré à partir des données du but (déterministe) ---- */
