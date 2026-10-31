@@ -3510,6 +3510,11 @@ function statusOf(n,k){if(!ABS||k==null||k<0)return null;const l=ABS.out[n];if(!
 function adjTeam(T,k){const isOut=n=>n&&statusOf(n,k);const C={...T,xi:[...(T.xi||[])],bench:(T.bench||[]).filter(n=>n&&BY[n]&&!isOut(n))};
   const f=FORMATIONS[C.formation]||FORMATIONS["4-3-3"];
   C.xi=C.xi.map((n,i)=>{if(!isOut(n))return n;const role=f[i][0];let bj=-1,be=-1;C.bench.forEach((b,j)=>{const e=effOvr(BY[b],role);if(e>be){be=e;bj=j}});return bj<0?null:C.bench.splice(bj,1)[0]});
+  // Les équipes IA font tourner : un titulaire dans le rouge laisse sa place à un remplaçant frais d'un niveau proche (3 changements max)
+  if(String(T.id||"").startsWith("ai")&&typeof conditionOf==="function"&&DER&&DER.hist){let swaps=0;
+    C.xi=C.xi.map((n,i)=>{if(!n||swaps>=3)return n;const role=f[i][0];if(role==="GK")return n;const cn=conditionOf(n,k);if(cn>=83)return n;
+      let bj=-1,be=-1;C.bench.forEach((b,j)=>{if(BY[b].pos.includes("GK"))return;if(conditionOf(b,k)<84)return;const e=effOvr(BY[b],role);if(e>=effOvr(BY[n],role)-6&&e>be){be=e;bj=j}});
+      if(bj<0)return n;swaps++;const b=C.bench.splice(bj,1)[0];C.bench.push(n);return b})}
   const RS=(T.res||[]).filter(n=>n&&BY[n]&&!isOut(n));C.xi=C.xi.map((n,i)=>{if(n)return n;const role=f[i][0];let bj=-1,be=-1;RS.forEach((b,j)=>{const e=effOvr(BY[b],role);if(e>be){be=e;bj=j}});return bj<0?null:RS.splice(bj,1)[0]});
   return C}
 
@@ -3615,9 +3620,11 @@ function buildDerived(){const hist={},prog={...(league&&league.prog0||{})};
   DER={hist,prog};PLAYERS.forEach(p=>{p.ovr=p.base+Math.trunc(prog[p.name]||0)})}
 // Récupération en heures réelles : la nuit (≈19 h entre 14h et 9h) récupère bien plus que la pause 9h → 14h (5 h)
 function slotTime(d,c){return (c==="C"&&typeof cupDate==="function"?cupDate(d):roundDate(d)).getTime()}
-function conditionOf(n,day){const H=DER.hist[n];if(!H||!league||!league.start)return 100;const t0=roundDate(day).getTime();let load=0;
-  H.forEach(x=>{const hrs=(t0-slotTime(x.d,x.c))/36e5;if(hrs<=0||hrs>96)return;load+=(x.mins/90)*Math.exp(-hrs/18)});
-  return Math.round(Math.max(55,Math.min(100,100-12*load)))}
+// Deux composantes : fatigue immédiate (s'efface en ~1 jour) + fatigue accumulée (s'efface en plusieurs jours).
+// Jouer tous les matchs sans repos fait passer un joueur dans le rouge (< 80 %), une rotation régulière le garde au vert.
+function conditionOf(n,day){const H=DER.hist[n];if(!H||!league||!league.start)return 100;const t0=roundDate(day).getTime();let acute=0,chronic=0;
+  H.forEach(x=>{const hrs=(t0-slotTime(x.d,x.c))/36e5,w=x.mins/90;if(hrs<=0||hrs>192)return;if(hrs<=96)acute+=w*Math.exp(-hrs/18);chronic+=w*Math.exp(-hrs/60)});
+  return Math.round(Math.max(45,Math.min(100,100-11*acute-1.5*chronic)))}
 // Mental : moral d'équipe, confiance, frustration, manque de rythme. Effet plafonné à ±1,5.
 function teamMorale(id,day){if(!league||!id)return{v:0,why:""};const t0=roundDate(day).getTime(),L=[];
   allByDay().forEach(({d,m,c})=>{if(m.hId!==id&&m.aId!==id)return;if(slotTime(d,c)>=t0)return;const home=m.hId===id,my=home?m.hs:m.as,op=home?m.as:m.hs;
@@ -3649,7 +3656,7 @@ function formOf(n,day){const H=(DER.hist[n]||[]).filter(x=>x.d<day&&x.mins>=20).
   return{avg,bonus:Math.max(-2,Math.min(2,(avg-6.6)*1.5))}}
 function setMods(day){MOD={};INJW={};const teams=[...league.mine.map(m=>lgTeam(m.id)),...league.ai];
   teams.forEach(T=>[...(T.xi||[]),...(T.bench||[]),...(T.res||[])].forEach(n=>{if(!n)return;const c=conditionOf(n,day),f=formOf(n,day),md=moodOf(n,day,T);
-    MOD[n]=Math.max(-3,Math.min(3,(f?f.bonus:0)+md.v-Math.min(2,(100-c)/10*.6)));INJW[n]=1+Math.min(.35,(100-c)/60)}))}
+    MOD[n]=Math.max(-3,Math.min(3,(f?f.bonus:0)+md.v-Math.min(2.5,(100-c)/10*.6)));INJW[n]=1+Math.min(.6,(100-c)/50)}))}
 function nextDay(){if(!league||!league.schedule)return -1;const c=[];const k=nextRoundIdx();if(k>=0)c.push(k);
   if(league.cup)league.cup.rounds.forEach((r,i)=>{if(!league.cup.results[i])c.push(r.day)});return c.length?Math.min(...c):-1}
 const CUP_NAMES=["Quarts de finale","Demi-finales","Finale"];
