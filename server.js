@@ -87,7 +87,7 @@ persist();
 
 // ---------- Fusion des écritures venant des navigateurs ----------
 let lastConflicts = [];
-const teamChanged = (a, b) => JSON.stringify([a.name, a.formation, a.xi, a.bench, a.res, a.resv, a.captain, a.takers, a.tactic]) !== JSON.stringify([b.name, b.formation, b.xi, b.bench, b.res, b.resv, b.captain, b.takers, b.tactic]);
+const teamChanged = (a, b) => JSON.stringify([a.name, a.formation, a.xi, a.bench, a.res, a.resv, a.captain, a.takers, a.tactic, a.watch || []]) !== JSON.stringify([b.name, b.formation, b.xi, b.bench, b.res, b.resv, b.captain, b.takers, b.tactic, b.watch || []]);
 function mergeBook(cur, inc, user) {
   lastConflicts = [];
   if (!cur || !Array.isArray(cur.teams)) return { teams: inc.teams || [], cur: inc.cur || 0 };

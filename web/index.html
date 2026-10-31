@@ -388,6 +388,22 @@ body.view-ai .team-name{pointer-events:none}
 .fms{display:inline-flex;gap:2px;margin-left:4px;vertical-align:-1px}
 .fm{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:4px;font-style:normal;font-weight:700;font-size:10px;color:#fff;line-height:1}
 .fm.v{background:#2f9e55}.fm.n{background:#8a8f96}.fm.d{background:#d0453b}
+.res-top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.res-top .res-h{margin:0}
+.watch-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;font-size:13px}
+.watch-btn .ico{width:16px;height:16px}
+.watch-btn b{min-width:18px;padding:0 5px;border-radius:9px;background:var(--accent,#7ee08a);color:var(--accent-ink,#08210f);font-size:11px;line-height:18px;text-align:center}
+.watch-btn b:empty{display:none}
+.watch-btn.on{border-color:var(--accent,#7ee08a)}
+#watchWrap{margin-top:14px}
+.wslot{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px}
+.wslot .slot{cursor:default}
+.watch .cond,.watch .mood{display:none!important}
+.watch .slot>.nm{display:none}
+.watch .slot .empty{font-size:15px}
+.res-top{margin-bottom:8px}
+.wdel{position:absolute;top:-6px;right:-4px;width:22px;height:22px;border-radius:50%;border:1px solid var(--line,#2a3f33);background:var(--panel,#132019);color:var(--fg,#eef3ee);font-size:14px;line-height:1;cursor:pointer;display:grid;place-items:center;z-index:3}
+.wdel:hover{background:#d0453b;color:#fff;border-color:#d0453b}
 </style>
 
 <div class="appbar">
@@ -459,7 +475,7 @@ body.view-ai .team-name{pointer-events:none}
           </div>
         </div>
         <div class="bench" id="bench"></div>
-        <div id="resWrap"><p class="res-h"><b>Réserve</b><span> · 3 joueurs de moins de 20 ans</span></p><div class="bench" id="reserve"></div></div>
+        <div id="resWrap"><div class="res-top"><p class="res-h"><b>Réserve</b><span> · 3 joueurs de moins de 20 ans</span></p><button type="button" class="btn small watch-btn" id="watchBtn" aria-expanded="false"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>À surveiller</span><b id="watchN"></b></button></div><div class="bench" id="reserve"></div><div id="watchWrap" hidden><p class="res-h"><b>Joueurs à surveiller</b><span> · pour toi seulement, ils ne jouent pas</span></p><div class="bench watch" id="watch"></div></div></div>
         <div class="setp" id="setp" hidden></div>
       </section>
     </aside>
@@ -2911,7 +2927,7 @@ function setSync(txt,ok){const s=document.getElementById("syncState");if(!s)retu
 function RO(){return viewAI!=null||!!(window.ME&&window.ME!=="admin"&&state&&state.owner&&state.owner!==window.ME)}
 // Une équipe n'est envoyée au serveur que si son contenu a vraiment changé (un simple affichage ne réécrit rien)
 var BOOK_DIRTY=false,EDITS=0;
-function teamSig(t){return JSON.stringify([t.name,t.formation,t.xi,t.bench,t.res,t.resv,t.captain,t.takers,t.tactic])}
+function teamSig(t){return JSON.stringify([t.name,t.formation,t.xi,t.bench,t.res,t.resv,t.captain,t.takers,t.tactic,t.watch||[]])}
 function markSynced(teams){(teams||[]).forEach(t=>{t._srv=t.ts||0;t._sig=teamSig(t)})}
 function save(){if(typeof state!=="undefined"&&state){if(!state.owner&&window.ME&&window.ME!=="admin")state.owner=window.ME;
     if(!RO()){const sig=teamSig(state);if(sig!==state._sig){state._sig=sig;state.ts=Date.now();BOOK_DIRTY=true;EDITS++}}}
@@ -2930,7 +2946,7 @@ function photoId(n){let h=0;for(const ch of n)h=(h*31+ch.charCodeAt(0))>>>0;retu
 async function pushPhoto(name){if(!cloud)return;try{await cloud.col.doc(photoId(name)).set({name,src:photos[name]})}catch(e){toast("Photo gardée sur cet appareil seulement")}}
 function fixBook(b){if(!b||!Array.isArray(b.teams))return b;
   b.teams=b.teams.map(t=>({id:t.id||("t"+Math.random().toString(36).slice(2,10)),name:t.name||"Sans nom",formation:FORMATIONS[t.formation]?t.formation:"4-3-3",
-    xi:Array.from({length:11},(_,i)=>(t.xi&&t.xi[i])||null),bench:Array.from({length:7},(_,i)=>(t.bench&&t.bench[i])||null),res:Array.from({length:3},(_,i)=>(t.res&&t.res[i])||null),resv:Array.isArray(t.resv)?t.resv.filter(n=>typeof n==="string"):null,owner:typeof t.owner==="string"?t.owner:undefined,ts:+t.ts||0,captain:typeof t.captain==="string"?t.captain:null,takers:(t.takers&&typeof t.takers==="object")?{...t.takers}:{},tactic:TACTICS[t.tactic]?t.tactic:"equilibre"}));return b}
+    xi:Array.from({length:11},(_,i)=>(t.xi&&t.xi[i])||null),bench:Array.from({length:7},(_,i)=>(t.bench&&t.bench[i])||null),res:Array.from({length:3},(_,i)=>(t.res&&t.res[i])||null),resv:Array.isArray(t.resv)?t.resv.filter(n=>typeof n==="string"):null,owner:typeof t.owner==="string"?t.owner:undefined,ts:+t.ts||0,captain:typeof t.captain==="string"?t.captain:null,takers:(t.takers&&typeof t.takers==="object")?{...t.takers}:{},tactic:TACTICS[t.tactic]?t.tactic:"equilibre",watch:Array.isArray(t.watch)?[...new Set(t.watch.filter(n=>typeof n==="string"))].slice(0,300):[]}));return b}
 async function pullCloud(){
   const snap=await cloud.col.get();let remote=null;
   for(const d of snap.docs){const v=d.data();if(d.id==="league"&&v&&v.schedule){const rl=JSON.parse(JSON.stringify(v));if(!league||!league.schedule||rl.id===league.id||!league.results||Object.keys(rl.results||{}).length>=Object.keys(league.results).length){league=rl;try{localStorage.setItem(LKEY,JSON.stringify(league))}catch(e){}}}else if(d.id==="matches"&&v&&Array.isArray(v.list)){const rm=JSON.parse(JSON.stringify(v));const seen=new Set(rm.list.map(x=>x.date));(matches.list||[]).forEach(x=>{if(!seen.has(x.date))rm.list.push(x)});matches={home:rm.home||matches.home,away:rm.away||matches.away,since:[rm.since,matches.since].filter(Boolean).sort()[0]||null,list:rm.list};try{localStorage.setItem(MKEY,JSON.stringify(matches))}catch(e){}}else if(d.id==="photos"&&v&&typeof v==="object"){photos={};Object.entries(v).forEach(([n,u])=>{if(typeof u==="string"&&BY[n])photos[n]=u})}else if(d.id==="book")remote=fixBook(JSON.parse(JSON.stringify(v)));}
@@ -3117,6 +3133,7 @@ function render(){
   {const rh=document.querySelector("#resWrap .res-h span");if(rh){const lk=resClosed(state),n=resvOf(state).length,k=league&&league.resFull&&league.resFull[state.id];
     rh.textContent=lk?" · verrouillée jusqu'à la fin de la saison":n>=3&&k!=null?` · 3/3, modifiable jusqu'à ${fmtDate(dstr(roundDate(k)))} ${slotHour(k)}h, puis verrouillée`:` · ${n}/3 joueurs de moins de 20 ans`}}
   for(let i=0;i<3;i++){const s=slotBtn(state.res[i],"SUB","+",()=>openPicker({kind:"res",i,role:"SUB"}));s.dataset.kind="res";s.dataset.i=i;resBox.append(s)}
+  renderWatch();
   if(state.captain&&!state.xi.includes(state.captain))state.captain=null;
   if(!state.takers)state.takers={}; for(const k in state.takers) if(state.takers[k]&&!state.xi.includes(state.takers[k])) state.takers[k]=null;
   renderSetPieces();
@@ -3158,12 +3175,12 @@ function lockedRoster(){if(typeof league==="undefined"||!league||!league.roster|
 function used(){return new Set([...state.xi,...state.bench,...(state.res||[])].filter(Boolean))}
 function otherTeamsWith(name){return book.teams.filter((t,i)=>i!==book.cur&&(t.xi.includes(name)||t.bench.includes(name)||(t.res||[]).includes(name)))}
 let pending=null;
-function currentName(){return (state[target.kind]||[])[target.i]||null}
+function currentName(){if(!target||target.kind==="watch")return null;return (state[target.kind]||[])[target.i]||null}
 
 function openPicker(t){
   if(RO()){toast(viewAI!=null?"Équipe IA : lecture seule":`Équipe de ${state.owner} : lecture seule`);return}
   target=t;
-  document.getElementById("sheetTitle").textContent = t.kind==="xi"?`Choisir : ${POS_FR[t.role]}`:t.kind==="res"?"Choisir un réserviste (moins de 20 ans)":"Choisir un remplaçant";
+  document.getElementById("sheetTitle").textContent = t.kind==="watch"?"Ajouter un joueur à surveiller":t.kind==="xi"?`Choisir : ${POS_FR[t.role]}`:t.kind==="res"?"Choisir un réserviste (moins de 20 ans)":"Choisir un remplaçant";
   const fPos=document.getElementById("fPos"); fPos.checked=t.role!=="SUB"; fPos.disabled=t.role==="SUB"; setGroup("");
   document.getElementById("q").value="";
   const cur=currentName();
@@ -3175,6 +3192,16 @@ function openPicker(t){
   document.getElementById("overlay").hidden=false;
   renderResults(); setTimeout(()=>document.getElementById("q").focus(),30);
 }
+let watchOpen=false;try{watchOpen=localStorage.getItem("compo-fc-watch")==="1"}catch(e){}
+function renderWatch(){const wb=document.getElementById("watchBtn"),ww=document.getElementById("watchWrap"),box=document.getElementById("watch");if(!wb||!box)return;
+  const W=(state.watch||[]).filter(n=>BY[n]);wb.hidden=RO()&&!W.length;document.getElementById("watchN").textContent=W.length?String(W.length):"";
+  wb.setAttribute("aria-expanded",watchOpen);wb.classList.toggle("on",watchOpen);ww.hidden=!watchOpen||wb.hidden;box.replaceChildren();if(ww.hidden)return;
+  W.forEach(n=>{const p=BY[n],w=el("div","wslot"),c=el("div","slot");c.append(cardFor(p,"SUB"));w.append(c);
+    if(!RO()){const x=el("button","wdel","×");x.type="button";x.title=`Retirer ${n}`;x.setAttribute("aria-label",`Retirer ${n} des joueurs à surveiller`);
+      x.onclick=()=>{state.watch=(state.watch||[]).filter(v=>v!==n);render()};w.append(x)}
+    box.append(w)});
+  if(!RO()){const add=slotBtn(null,"SUB","Ajouter",()=>openPicker({kind:"watch",i:0,role:"SUB"}));add.setAttribute("aria-label","Ajouter un joueur à surveiller");box.append(add)}}
+document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("#watchBtn")){watchOpen=!watchOpen;try{localStorage.setItem("compo-fc-watch",watchOpen?"1":"0")}catch(_){}renderWatch()}});
 function closePicker(){document.getElementById("overlay").hidden=true;target=null}
 
 function renderResults(){
@@ -3182,7 +3209,7 @@ function renderResults(){
   const grp=document.querySelector("#fGroup .on")?.dataset.g||"";
   const onlyPos=!grp&&document.getElementById("fPos").checked, young=document.getElementById("fYoung").checked, sort=document.getElementById("fSort").value, type="cur";
   const u=used(), role=target.role;
-  const R0=lockedRoster(),isRes=target.kind==="res",resLock=isRes&&resClosed(state),R=(isRes&&!currentName()&&!resLock)?null:R0;
+  const isW=target.kind==="watch",R0=isW?null:lockedRoster(),isRes=target.kind==="res",resLock=isRes&&resClosed(state),R=(isRes&&!currentName()&&!resLock)?null:R0;
   let list=PLAYERS.filter(p=>{
     if(isRes && !U20(p) && !used().has(p.name)) return false;
     if(isRes && R0 && !R && !R0.includes(p.name) && otherTeamsWith(p.name).length) return false;
@@ -3197,6 +3224,7 @@ function renderResults(){
   });
   list.sort(sort==="age"?(a,b)=>((a.age||99)-(b.age||99))||b.ovr-a.ovr:sort==="name"?(a,b)=>a.name.localeCompare(b.name,"fr"):(a,b)=>b.ovr-a.ovr);
   const box=document.getElementById("results"); box.replaceChildren();
+  if(isW)box.append(el("p","note","Ajoute autant de joueurs que tu veux. Ils ne peuvent pas jouer : c'est juste ta liste à suivre."));
   if(isRes)box.append(el("p","note",resLock?"Réserve verrouillée jusqu'à la fin de la saison : tu peux seulement y placer un joueur de ton effectif.":R0&&!R?"Réserve : tu peux recruter un joueur de moins de 20 ans pour cette place libre (il rejoint alors ton effectif).":"Réserve : les nouveaux réservistes doivent avoir moins de 20 ans (badge R). Tu peux aussi y placer un joueur de ton effectif, par exemple un blessé."));
   else if(R)box.append(el("p","note","Mercato fermé pendant la saison : seuls les joueurs de ton effectif sont disponibles."));
   if(!list.length){box.append(el("p","note",R?"Aucun joueur de ton effectif ne correspond.":"Aucun joueur. Décoche « Postes compatibles » ou change ta recherche."));return}
@@ -3221,6 +3249,8 @@ function renderResults(){
 function fit(p,role){if(p.pos.includes(role))return 2;return (NEAR[role]||[]).some(r=>p.pos.includes(r))?1:0}
 
 function pick(name){
+  if(target&&target.kind==="watch"){const W=state.watch||(state.watch=[]);if(W.includes(name)){toast(`${name} est déjà dans ta liste`);return}
+    W.push(name);closePicker();render();toast(`${name} ajouté aux joueurs à surveiller`);return}
   const inTeam=used().has(name);
   if(target.kind==="res"&&!inTeam){if(!U20(BY[name])){toast("La réserve est réservée aux moins de 20 ans");return}
     if(resClosed(state)){toast("Réserve verrouillée : plus de recrutement cette saison");return}
@@ -4158,7 +4188,7 @@ document.getElementById("imgBtn").onclick=async e=>{
         .then(r=>r.ok?r.json():Promise.reject(r.status)).then(j=>{if(j.photos)photos={...j.photos};render();toast(j.persistent===false?"Enregistrée, mais ⚠️ pas de volume Railway : elle sera perdue au prochain déploiement":"Photo enregistrée ✓",j.persistent===false?7000:2500)})
         .catch(()=>toast("Échec de l'enregistrement, réessaie"));return chain};
     book.teams.forEach(T=>{list.append(el("div","ph-team",T.name));
-      [...new Set([...T.xi,...(T.bench||[]),...(T.res||[])].filter(n=>n&&BY[n]))].forEach(n=>{const p=BY[n],row=el("div","ph-row"),pv=el("div","ph-prev");
+      [...new Set([...T.xi,...(T.bench||[]),...(T.res||[]),...(T.watch||[])].filter(n=>n&&BY[n]))].forEach(n=>{const p=BY[n],row=el("div","ph-row"),pv=el("div","ph-prev");
         if(draft[n])pv.style.backgroundImage=`url("${draft[n]}")`;
         const nm=el("div");nm.append(el("b",null,p.name),el("small",null,`${p.pos.map(x=>POS_FR[x]).join("/")} · ${p.club}`));
         const inp=document.createElement("input");inp.type="url";inp.placeholder="https://…";inp.value=draft[n]||"";inp.setAttribute("aria-label",`Lien de la photo de ${p.name}`);
