@@ -50,7 +50,7 @@
         doc(id) {
           return {
             async set(data) {
-              await api("/api/docs/" + encodeURIComponent(id), {
+              return await api("/api/docs/" + encodeURIComponent(id), {
                 method: "PUT",
                 headers: { "content-type": "application/json" },
                 body: JSON.stringify(data),

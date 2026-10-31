@@ -45,3 +45,12 @@ api.slack.com/apps → *Create New App* → *From scratch* → **Incoming Webhoo
 - **Android (Chrome)** : menu ⋮ → *Installer l'application*.
 
 L'app s'ouvre alors en plein écran ; hors connexion, elle affiche la dernière version consultée.
+
+## Protection des données
+
+- Tout est enregistré sur le volume Railway (`/data`, détecté automatiquement) : `state.json` + `photos/`.
+- Sauvegarde complète chaque heure, à chaque démarrage et avant chaque nouvelle saison (`/data/backups`, 72 dernières gardées).
+- Si `state.json` est abîmé, le serveur repart automatiquement de la dernière sauvegarde valide.
+- Compte admin → menu du profil → **Sauvegardes** pour revenir à un état précédent (l'état actuel est sauvegardé juste avant).
+- Une copie périmée d'une équipe (autre appareil resté ouvert) ne peut pas écraser une version plus récente.
+- `GET /health` indique si les données sont persistantes et la dernière sauvegarde.

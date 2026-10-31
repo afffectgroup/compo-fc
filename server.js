@@ -26,8 +26,21 @@ const SEED_FILE = path.join(__dirname, "seed", "state.json");
 
 // ---------- Stockage ----------
 fs.mkdirSync(DATA_DIR, { recursive: true });
+const BACKUP_DIR = path.join(DATA_DIR, "backups");
+const listBackups = () => (fs.existsSync(BACKUP_DIR) ? fs.readdirSync(BACKUP_DIR).filter(f => /^state-[\d-]+(-[a-z]+)?\.json$/.test(f)).sort().reverse() : []);
+function readJSON(f) { const s = JSON.parse(fs.readFileSync(f, "utf8")); if (!s || typeof s !== "object" || !s.docs) throw new Error("format"); return s; }
 function loadStore() {
-  if (fs.existsSync(STATE_FILE)) return JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
+  if (fs.existsSync(STATE_FILE)) {
+    try { return readJSON(STATE_FILE); }
+    catch (e) {
+      // Fichier abîmé : on le met de côté et on repart de la sauvegarde la plus récente (jamais de la saison de départ)
+      console.error("state.json illisible :", e.message);
+      try { fs.copyFileSync(STATE_FILE, STATE_FILE + ".corrupt-" + Date.now()); } catch (_) {}
+      for (const f of listBackups()) { try { const s = readJSON(path.join(BACKUP_DIR, f)); console.warn("Restauré depuis la sauvegarde", f); return s; } catch (_) {} }
+      throw new Error("state.json illisible et aucune sauvegarde valide : arrêt pour ne rien écraser");
+    }
+  }
+  for (const f of listBackups()) { try { const s = readJSON(path.join(BACKUP_DIR, f)); console.warn("state.json absent : restauré depuis", f); return s; } catch (_) {} }
   const seed = fs.existsSync(SEED_FILE) ? JSON.parse(fs.readFileSync(SEED_FILE, "utf8")) : { docs: {} };
   const store = { docs: seed.docs || {}, meta: { createdAt: new Date().toISOString() } };
   const L = store.docs.league;
@@ -36,11 +49,25 @@ function loadStore() {
 }
 let store = loadStore();
 const BOOTED = new Date().toISOString();
+backup(); // une sauvegarde à chaque démarrage
 if (!PERSISTENT) console.warn("⚠️  Aucun volume Railway détecté : les données seront perdues au prochain déploiement. Attache un volume sur /data.");
+var lastBackup = 0;
+function backup(tag) {
+  try {
+    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+    const d = new Date(), z = n => String(n).padStart(2, "0");
+    const name = `state-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${tag ? "-" + tag : ""}.json`;
+    fs.writeFileSync(path.join(BACKUP_DIR, name), JSON.stringify(store));
+    lastBackup = Date.now();
+    // On garde les 72 dernières (environ 3 jours à une par heure) + toutes les sauvegardes « saison »/« restauration »
+    listBackups().filter(f => !/-(saison|avant)\.json$/.test(f)).slice(72).forEach(f => fs.unlinkSync(path.join(BACKUP_DIR, f)));
+  } catch (e) { console.error("sauvegarde impossible :", e.message); }
+}
 function persist() {
   const tmp = STATE_FILE + ".tmp";
   fs.writeFileSync(tmp, JSON.stringify(store));
   fs.renameSync(tmp, STATE_FILE);
+  if (Date.now() - lastBackup > 3600e3) backup();
 }
 // Chaque équipe appartient à quelqu'un : attribuée d'après le nom (« Julien Déniel » → Julien).
 function assignOwners() {
@@ -53,7 +80,10 @@ assignOwners();
 persist();
 
 // ---------- Fusion des écritures venant des navigateurs ----------
+let lastConflicts = [];
+const teamChanged = (a, b) => JSON.stringify([a.name, a.formation, a.xi, a.bench, a.res, a.resv, a.captain, a.takers, a.tactic]) !== JSON.stringify([b.name, b.formation, b.xi, b.bench, b.res, b.resv, b.captain, b.takers, b.tactic]);
 function mergeBook(cur, inc, user) {
+  lastConflicts = [];
   if (!cur || !Array.isArray(cur.teams)) return { teams: inc.teams || [], cur: inc.cur || 0 };
   const byId = new Map(cur.teams.map(t => [t.id, t]));
   const mayEdit = t => !AUTH_ON || user === "admin" || !t || !t.owner || t.owner === user;
@@ -61,9 +91,12 @@ function mergeBook(cur, inc, user) {
   const order = [];
   for (const t of inc.teams || []) {
     const old = byId.get(t.id);
-    if (!old) order.push({ ...t, owner: t.owner || (user && user !== "admin" ? user : undefined) });
-    else if (mayEdit(old) && (t.ts || 0) >= (old.ts || 0)) order.push({ ...t, owner: old.owner || t.owner });
-    else order.push(old);
+    const { _srv, _sig, ...clean } = t;
+    // Accepté seulement si le client partait de la version actuelle du serveur (sinon c'est une copie périmée : on garde le serveur)
+    const fresh = old && (_srv != null ? (old.ts || 0) <= _srv : (clean.ts || 0) >= (old.ts || 0));
+    if (!old) order.push({ ...clean, owner: clean.owner || (user && user !== "admin" ? user : undefined) });
+    else if (mayEdit(old) && fresh) order.push({ ...clean, owner: old.owner || clean.owner });
+    else { if (mayEdit(old) && !fresh && teamChanged(old, clean)) { console.warn("copie périmée ignorée pour", old.name); lastConflicts.push(old.name); } order.push(old); }
     byId.delete(t.id);
   }
   for (const [id, t] of byId) if (!deleted.has(id)) order.push(t); // équipe ajoutée ailleurs entre-temps
@@ -71,7 +104,7 @@ function mergeBook(cur, inc, user) {
 }
 function mergeLeague(cur, inc) {
   if (!cur || !cur.schedule) return inc;
-  if (inc.id !== cur.id) return (inc.season || 0) > (cur.season || 0) ? inc : cur; // nouvelle saison seulement
+  if (inc.id !== cur.id) { if ((inc.season || 0) > (cur.season || 0)) { backup("saison"); return inc; } return cur; } // nouvelle saison seulement
   const out = { ...inc };
   out.results = { ...(inc.results || {}), ...(cur.results || {}) }; // les résultats du serveur font foi
   if (cur.cup && inc.cup) {
@@ -106,7 +139,11 @@ async function runTick(force) {
     if (!force && next && Date.now() < next) return; // rien à jouer avant la prochaine journée
     const res = tick(store.docs, store.meta);
     if (res.errors.length) console.warn("erreurs moteur:", res.errors.slice(0, 3));
-    store.docs.league = res.league; // tick est synchrone : aucune écriture n'a pu arriver entre-temps
+    // Garde-fou : le moteur ne doit jamais remplacer la saison ni faire disparaître des résultats
+    const before = store.docs.league, after = res.league;
+    const cnt = L => Object.keys(L.results || {}).length + Object.keys((L.cup && L.cup.results) || {}).length;
+    if (!after || after.id !== before.id || cnt(after) < cnt(before)) { console.error("tick refusé : le moteur aurait modifié la saison", before.id, after && after.id); return; }
+    store.docs.league = after; // tick est synchrone : aucune écriture n'a pu arriver entre-temps
     store.meta = { ...res.meta, nextAt: res.nextSlotAt };
     persist();
     for (const m of res.msgs) {
@@ -173,7 +210,7 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, "http://x");
     const p = url.pathname;
-    if (p === "/health") return send(res, 200, { ok: true, volume: !!VOLUME, persistent: PERSISTENT, dataSince: store.meta.createdAt || null, bootedAt: BOOTED });
+    if (p === "/health") { const b = listBackups(); return send(res, 200, { ok: true, volume: !!VOLUME, persistent: PERSISTENT, dataSince: store.meta.createdAt || null, bootedAt: BOOTED, backups: b.length, lastBackup: b[0] || null }); }
     if (req.method === "GET" && STATIC[p]) return sendFast(req, res, fileBuf(p.slice(1)), STATIC[p], "public, max-age=86400");
     if (req.method === "GET" && p === "/flags.js") return sendFast(req, res, fileBuf("flags.js"), "text/javascript; charset=utf-8", "public, max-age=31536000, immutable");
     if (p === "/logout") return send(res, 200, `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><body style="background:#0c1410"><script>
@@ -220,6 +257,23 @@ const server = http.createServer(async (req, res) => {
       else store.docs[id] = data;
       persist();
       if (id === "league" || id === "book") store.meta.nextAt = 0; // recalcul de la prochaine journée
+      return send(res, 200, { ok: true, conflicts: id === "book" ? lastConflicts : [] });
+    }
+    if (p === "/api/backups" && req.method === "GET") {
+      if (AUTH_ON && userOf(req) !== "admin") return send(res, 403, { error: "réservé à l'admin" });
+      const list = listBackups().map(f => { let info = {}; try { const s = readJSON(path.join(BACKUP_DIR, f)), L = s.docs.league || {}; info = { season: L.season, played: Object.keys(L.results || {}).length, total: (L.schedule || []).length }; } catch (_) { info = { broken: true }; } return { file: f, ...info }; });
+      return send(res, 200, { backups: list });
+    }
+    if (p === "/api/restore" && req.method === "POST") {
+      if (AUTH_ON && userOf(req) !== "admin") return send(res, 403, { error: "réservé à l'admin" });
+      const { file } = JSON.parse(await readBody(req, 1e4));
+      if (!listBackups().includes(file)) return send(res, 404, { error: "sauvegarde introuvable" });
+      const s = readJSON(path.join(BACKUP_DIR, file));
+      backup("avant");
+      store = s; store.meta = { ...(s.meta || {}), nextAt: 0 };
+      // ne pas renvoyer sur Slack des journées déjà annoncées
+      if (store.docs.league) { store.meta.leagueId = store.docs.league.id; store.meta.posted = playedSlots(store.docs.league); store.meta.postedCup = playedCup(store.docs.league); }
+      persist();
       return send(res, 200, { ok: true });
     }
     if (p === "/api/photo-link" && req.method === "POST") {

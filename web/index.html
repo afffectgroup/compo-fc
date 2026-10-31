@@ -397,7 +397,7 @@ body.view-ai .team-name{pointer-events:none}
     <button type="button" class="theme-btn" id="themeBtn" hidden aria-label="Thème"></button>
     <div class="me" id="meBox" hidden>
       <button type="button" class="me-btn" id="meBtn" aria-haspopup="true" aria-expanded="false"><span class="me-av" id="meAv"></span><span class="me-nm" id="meNm"></span></button>
-      <div class="me-menu" id="meMenu" hidden><a href="#" id="photosLink" hidden>Photos des joueurs</a><a href="/logout">Se déconnecter</a></div>
+      <div class="me-menu" id="meMenu" hidden><a href="#" id="photosLink" hidden>Photos des joueurs</a><a href="#" id="backupsLink" hidden>Sauvegardes</a><a href="/logout">Se déconnecter</a></div>
     </div>
   </div>
 </div>
@@ -2905,11 +2905,23 @@ function load(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null
 let cloud=null, pushTimer=null;
 function setSync(txt,ok){const s=document.getElementById("syncState");if(!s)return;s.textContent=txt;s.classList.toggle("ok",!!ok)}
 function RO(){return viewAI!=null||!!(window.ME&&window.ME!=="admin"&&state&&state.owner&&state.owner!==window.ME)}
-function save(){if(typeof state!=="undefined"&&state){if(!state.owner&&window.ME&&window.ME!=="admin")state.owner=window.ME;if(!RO())state.ts=Date.now()}let ok=true;try{localStorage.setItem(BKEY,JSON.stringify(book))}catch(e){ok=false}
-  if(cloud){clearTimeout(pushTimer);pushTimer=setTimeout(pushBook,700)}return ok}
-async function pushBook(){clearTimeout(pushTimer);pushTimer=null;if(!cloud)return false;
-  try{await cloud.col.doc("book").set({teams:book.teams,cur:book.cur,deleted:book.deleted||[],updated:Date.now()});setSync("Synchronisé sur ton compte",true);return true}
-  catch(e){setSync("Synchro en échec, gardé sur cet appareil");return false}}
+// Une équipe n'est envoyée au serveur que si son contenu a vraiment changé (un simple affichage ne réécrit rien)
+var BOOK_DIRTY=false,EDITS=0;
+function teamSig(t){return JSON.stringify([t.name,t.formation,t.xi,t.bench,t.res,t.resv,t.captain,t.takers,t.tactic])}
+function markSynced(teams){(teams||[]).forEach(t=>{t._srv=t.ts||0;t._sig=teamSig(t)})}
+function save(){if(typeof state!=="undefined"&&state){if(!state.owner&&window.ME&&window.ME!=="admin")state.owner=window.ME;
+    if(!RO()){const sig=teamSig(state);if(sig!==state._sig){state._sig=sig;state.ts=Date.now();BOOK_DIRTY=true;EDITS++}}}
+  let ok=true;try{localStorage.setItem(BKEY,JSON.stringify(book))}catch(e){ok=false}
+  if(cloud&&BOOK_DIRTY){clearTimeout(pushTimer);pushTimer=setTimeout(pushBook,700)}return ok}
+async function pushBook(){clearTimeout(pushTimer);pushTimer=null;if(!cloud)return false;const e0=EDITS;
+  try{const res=await cloud.col.doc("book").set({teams:book.teams,cur:book.cur,deleted:book.deleted||[],updated:Date.now()});
+    if(res&&res.conflicts&&res.conflicts.length){
+      // Cette copie était périmée (équipe modifiée depuis un autre appareil) : on recharge la version du serveur
+      BOOK_DIRTY=false;const r=await pullCloud();if(r&&Array.isArray(r.teams)&&r.teams.length){markSynced(r.teams);const cur=state&&state.id;book={teams:r.teams,cur:Math.max(0,r.teams.findIndex(t=>t.id===cur)),deleted:[]};state=book.teams[book.cur];render()}
+      toast("Ton équipe avait été modifiée sur un autre appareil : version la plus récente rechargée, refais ton dernier changement",6000);return true}
+    book.teams.forEach(t=>{t._srv=t.ts||0});if(EDITS===e0)BOOK_DIRTY=false;else pushTimer=setTimeout(pushBook,700);
+    setSync("Synchronisé sur ton compte",true);return true}
+  catch(e){setSync("Synchro en échec, nouvel essai…");pushTimer=setTimeout(pushBook,5000);return false}}
 function photoId(n){let h=0;for(const ch of n)h=(h*31+ch.charCodeAt(0))>>>0;return "p_"+h.toString(36)}
 async function pushPhoto(name){if(!cloud)return;try{await cloud.col.doc(photoId(name)).set({name,src:photos[name]})}catch(e){toast("Photo gardée sur cet appareil seulement")}}
 function fixBook(b){if(!b||!Array.isArray(b.teams))return b;
@@ -2930,6 +2942,7 @@ async function initCloud(){
     const localPhotos={...photos};
     const remote=await pullCloud();
     if(remote&&Array.isArray(remote.teams)&&remote.teams.length){
+      markSynced(remote.teams);BOOK_DIRTY=false;
       book={teams:remote.teams,cur:Math.min(remote.cur||0,remote.teams.length-1)};state=book.teams[book.cur];
       try{localStorage.setItem(BKEY,JSON.stringify(book))}catch(e){}
       setSync("Synchronisé sur ton compte",true);
@@ -2939,7 +2952,7 @@ async function initCloud(){
     leagueReady=true;runLeague();
     document.addEventListener("visibilitychange",async()=>{
       if(document.visibilityState!=="visible"||pushTimer||target)return;
-      try{const r=await pullCloud();if(r&&Array.isArray(r.teams)&&r.teams.length&&r.updated){book={teams:r.teams,cur:Math.min(book.cur,r.teams.length-1)};state=book.teams[book.cur];render()}}catch(e){}
+      const e0=EDITS;try{const r=await pullCloud();if(r&&Array.isArray(r.teams)&&r.teams.length&&!BOOK_DIRTY&&EDITS===e0&&!pushTimer){markSynced(r.teams);const cur=state&&state.id;book={teams:r.teams,cur:Math.max(0,r.teams.findIndex(t=>t.id===cur)),deleted:[]};state=book.teams[book.cur];render()}}catch(e){}
     });
   }catch(e){cloud=null;setSync("Enregistré sur cet appareil seulement");leagueReady=true;runLeague()}
 }
@@ -3855,7 +3868,7 @@ function renderAIGrid(){const g=document.getElementById("aiGrid");if(!g)return;g
     b.append(top,el("span","ai-meta",`${t.formation} · ${pos}${pos===1?"er":"e"} du classement`),el("span","ai-stars",best));g.append(b)})}
 
 setInterval(async()=>{if(document.visibilityState!=="visible"||drag)return;
-  if(cloud&&!pushTimer&&!target){try{const r=await pullCloud();if(r&&Array.isArray(r.teams)&&r.teams.length){const cur=state&&state.id;book={teams:r.teams,cur:Math.max(0,r.teams.findIndex(t=>t.id===cur)),deleted:[]};state=book.teams[book.cur];render()}}catch(e){}}
+  if(cloud&&!pushTimer&&!target&&!BOOK_DIRTY){const e0=EDITS;try{const r=await pullCloud();if(r&&Array.isArray(r.teams)&&r.teams.length&&!BOOK_DIRTY&&EDITS===e0&&!pushTimer&&!target&&!drag){markSynced(r.teams);const cur=state&&state.id;book={teams:r.teams,cur:Math.max(0,r.teams.findIndex(t=>t.id===cur)),deleted:[]};state=book.teams[book.cur];render()}}catch(e){}}
   runLeague()},30000);
 setTimeout(()=>{if(!leagueReady){leagueReady=true;runLeague()}},12000);
 render();
@@ -4018,6 +4031,22 @@ document.getElementById("imgBtn").onclick=async e=>{
     document.addEventListener("themechange",paint)}
   // Photos des joueurs : réservé au compte admin, qui colle un lien d'image par joueur
   if(window.ME==="admin"){const pl=document.getElementById("photosLink");if(pl){pl.hidden=false;pl.onclick=e=>{e.preventDefault();document.getElementById("meMenu").hidden=true;openPhotos()}}}
+  if(window.ME==="admin"){const bl=document.getElementById("backupsLink");if(bl){bl.hidden=false;bl.onclick=e=>{e.preventDefault();document.getElementById("meMenu").hidden=true;openBackups()}}}
+  async function openBackups(){
+    const ov=document.createElement("div");ov.className="overlay ph-sheet";const sh=document.createElement("div");sh.className="sheet";ov.append(sh);
+    const head=el("div","sheet-head"),tt=el("div","sheet-title");tt.append(el("h3",null,"Sauvegardes"));const cl=el("button","btn","Fermer");cl.type="button";tt.append(cl);head.append(tt);
+    head.append(el("p","note","Une copie complète est faite chaque heure, à chaque redémarrage et avant chaque nouvelle saison. Restaurer remet l'app exactement dans cet état (l'état actuel est sauvegardé juste avant)."));sh.append(head);
+    const list=el("div","ph-list");sh.append(list);list.append(el("p","note","Chargement…"));
+    const close=()=>ov.remove();cl.onclick=close;ov.onclick=e=>{if(e.target===ov)close()};document.body.append(ov);
+    try{const j=await (await fetch("/api/backups")).json();list.replaceChildren();
+      if(!j.backups||!j.backups.length){list.append(el("p","note","Aucune sauvegarde pour l'instant."));return}
+      j.backups.forEach(b=>{const m=/state-(\d{4})(\d\d)(\d\d)-(\d\d)(\d\d)(?:-(\w+))?/.exec(b.file)||[];const row=el("div","ph-row bk-row");
+        const when=m[1]?`${m[3]}/${m[2]} à ${m[4]}h${m[5]}`:b.file;const nm=el("div");nm.append(el("b",null,when+(m[6]==="saison"?" · avant nouvelle saison":m[6]==="avant"?" · avant restauration":"")),el("small",null,b.broken?"illisible":`Saison ${b.season} · ${b.played}/${b.total} journées`));
+        const go=el("button","btn small","Restaurer");go.type="button";go.disabled=!!b.broken;
+        go.onclick=async()=>{if(!go.dataset.armed){go.dataset.armed=1;go.textContent="Confirmer ?";return}go.disabled=true;
+          const r=await fetch("/api/restore",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({file:b.file})});
+          if(r.ok){toast("Sauvegarde restaurée, rechargement…");setTimeout(()=>location.reload(),800)}else{toast("Échec de la restauration");go.disabled=false}};
+        row.append(nm,go);list.append(row)})}catch(e){list.replaceChildren(el("p","note","Impossible de charger les sauvegardes."))}}
   function openPhotos(){
     const ov=document.createElement("div");ov.className="overlay ph-sheet";
     const sh=document.createElement("div");sh.className="sheet";ov.append(sh);
@@ -4128,6 +4157,7 @@ document.getElementById("imgBtn").onclick=async e=>{
 .ph-list{overflow:auto;padding:6px 14px 14px;display:grid;gap:6px}
 .ph-team{font-family:var(--display);font-weight:800;text-transform:uppercase;letter-spacing:.04em;font-size:16px;margin:12px 0 2px}
 .ph-bulk{justify-self:start;cursor:pointer}
+.ph-row.bk-row{grid-template-columns:minmax(0,1fr) auto}
 .ph-row .btn.small{cursor:pointer;white-space:nowrap}.ph-row .busy{opacity:.5;pointer-events:none}
 .ph-row{display:grid;grid-template-columns:48px minmax(0,150px) minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:6px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2)}
 .ph-prev{width:48px;height:48px;border-radius:8px;background:var(--bg) center/contain no-repeat;border:1px solid var(--line)}
