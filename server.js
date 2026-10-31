@@ -250,6 +250,13 @@ const server = http.createServer(async (req, res) => {
     const m = p.match(/^\/api\/docs\/([A-Za-z0-9_\-.]{1,80})$/);
     if (m && req.method === "PUT") {
       const id = m[1], data = JSON.parse(await readBody(req));
+      if (id.startsWith("seen-")) {
+        const u = userOf(req);
+        if (AUTH_ON && u !== "admin" && id !== "seen-" + u) return send(res, 403, { error: "interdit" });
+        store.docs[id] = { lg: String((data && data.lg) || ""), keys: Array.isArray(data && data.keys) ? data.keys.filter(k => typeof k === "string" && k.length < 12).slice(-300) : [] };
+        persist();
+        return send(res, 200, { ok: true });
+      }
       if (id === "photos") {
         if (AUTH_ON && userOf(req) !== "admin") return send(res, 403, { error: "réservé à l'admin" });
         const clean = {};
