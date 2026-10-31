@@ -3683,7 +3683,9 @@ function initCup(){const st=new Date(league.start+"T00:00:00");let first=-1;cons
   league.cup={rounds,results:{}};cupDays()}
 function cupDays(){const C=league.cup,last=league.schedule.length-1,k=C.rounds.length-1,picks=[];
   for(let i=1;i<=k;i++){let s=Math.round(last*i/(k+1));if(s%2===0)s++;picks.push(Math.min(s,last))}
-  C.rounds.forEach((R,i)=>{if(!C.results[i])R.day=i<k?picks[i]:last+14})}
+  C.rounds.forEach((R,i)=>{if(!C.results[i])R.day=i<k?picks[i]:last+2})}
+// Finale : le lendemain soir de la dernière journée (ancien calendrier : une semaine après)
+function fixFinal(){try{const C=league&&league.cup;if(!C||!league.schedule)return;const k=C.rounds.length-1,last=league.schedule.length-1;if(!C.results[k]&&C.rounds[k].day===last+14)C.rounds[k].day=last+2}catch(e){}}
 function cupWinnerId(m){return m.win?(m.win==="h"?m.hId:m.aId):(m.hs>m.as?m.hId:m.aId)}
 function ensureCupTies(i){const R=league.cup.rounds[i];if(R.ties||i===0)return;const prev=league.cup.results[i-1];if(!prev)return;let w=prev.map(cupWinnerId);if(R.byes)w=shuffleSeeded([...R.byes,...w],rngOf(hstr("cup|"+league.id+"|"+i)));R.ties=[];for(let j=0;j+1<w.length;j+=2)R.ties.push([w[j],w[j+1]])}
 const cupLast=()=>league.cup.rounds.length-1;
@@ -3766,7 +3768,7 @@ function nextEventAt(){if(!league||!league.schedule)return null;const t=[];leagu
   if(league.cup)league.cup.rounds.forEach((R,i)=>{if(!league.cup.results[i])t.push(cupDate(R.day).getTime())});return t.length?Math.min(...t):null}
 function runLeague(){
   if(!leagueReady)return;ensureIds();if(book.teams.length<2){renderLeague();return}
-  if(league&&league.schedule&&league.ver!==LEAGUE_VER)league=null;
+  if(league&&league.schedule&&league.ver!==LEAGUE_VER)league=null;fixFinal();
   if(!league||!league.schedule)createLeague();
   if(!league.h10){league.h10=1;league.h9=1;const td=dstr(new Date());if(!Object.keys(league.results||{}).length&&league.start>td){league.start=td;if(league.cup&&!Object.keys(league.cup.results||{}).length)cupDays()}saveLeague()}
   if(!league.h14){league.h14=1;if(league.cup)cupDays();saveLeague()}
