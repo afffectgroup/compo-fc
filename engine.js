@@ -279,7 +279,9 @@ const REPORT_JS = String.raw`
   function recent(n,before){const A=new Set();for(let d=before-1;d>=Math.max(0,before-n);d--){const ms=league.results[d];if(!ms)continue;try{teaser(ms,d,null,d-1).split(/(?<=\?)\s+/).forEach(t=>A.add(t))}catch(e){}}return A}
   function teaserL(D){const ms=league.results[D];if(!ms)return "";const t="*<{{APP}}|Journée "+(D+1)+" à "+slotHour(D)+"h>* : c'est terminé !";let tq="";try{tq=teaser(ms,D,null,D-1,recent(4,D))}catch(e){}return t+(tq?"\n_"+tq+"_":"")+"\nRéponse dans l'app."}
   function teaserC(i){const R=league.cup.rounds[i],ms=league.cup.results[i];if(!ms)return "";const t="*<{{APP}}|"+R.name+" à "+CUP_HOUR+"h>* : c'est terminé !";let tq="";try{tq=teaser(ms,"c"+i,R,R.day)}catch(e){}return t+(tq?"\n_"+tq+"_":"")+"\nRéponse dans l'app."}
-  return {results,cupResults,reminder,seasonEnd,teaserL,teaserC};
+  function uneL(D){try{return headline(league.results[D]||[],D,null)||""}catch(e){return ""}}
+  function uneC(i){try{return headline(league.cup.results[i]||[],"c"+i,league.cup.rounds[i])||""}catch(e){return ""}}
+  return {results,cupResults,reminder,seasonEnd,teaserL,teaserC,uneL,uneC};
 })()`;
 
 function playedSlots(league) {
@@ -305,12 +307,19 @@ function tick(docs, meta, now = new Date()) {
     for (const i of playedCup(league)) if (!postedCup.has(i)) { const text = R.cupResults(i); if (text) msgs.push({ kind: "cup", round: i, text, teaser: R.teaserC(i) }); postedCup.add(i); }
     let seasonEndPosted = meta.seasonEnd || null;
     if (w.eval("seasonDone()") && seasonEndPosted !== league.id) { msgs.push({ kind: "season", text: R.seasonEnd() }); seasonEndPosted = league.id; }
+    // La Une : le gros titre de chaque journée, stocké dans la saison pour l'afficher dans l'app (après révélation)
+    league.une = league.une || {};
+    for (const D of playedSlots(league)) if (league.une["L" + D] == null) league.une["L" + D] = R.uneL(D);
+    for (const i of playedCup(league)) if (league.une["C" + i] == null) league.une["C" + i] = R.uneC(i);
+    // Ballon d'Or : le lauréat est figé à la fin de la saison
+    let bdo = null;
+    try { if (w.eval("seasonDone()")) bdo = JSON.parse(w.eval("JSON.stringify((bdoTable()[0])||null)")); } catch (e) {}
     // Pas de rappel séparé : le prochain match et les absents sont ajoutés au dernier message de résultats.
     const k = w.eval("nextDay()");
     const nextSlotAt = w.eval("nextEventAt()");
     
     return {
-      league, book, msgs, errors: page.errors, nextSlotAt,
+      league, book, msgs, errors: page.errors, nextSlotAt, bdo,
       meta: { ...meta, posted: [...posted], postedCup: [...postedCup], seasonEnd: seasonEndPosted, leagueId: league.id },
     };
   } finally { page.close(); }

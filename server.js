@@ -122,6 +122,7 @@ function mergeLeague(cur, inc) {
     for (const [id, names] of Object.entries(inc.roster || {})) out.roster[id] = [...new Set([...(out.roster[id] || []), ...names])];
   }
   out.resFull = { ...(inc.resFull || {}), ...(cur.resFull || {}) };
+  out.une = { ...(inc.une || {}), ...(cur.une || {}) };
   return out;
 }
 
@@ -172,6 +173,7 @@ async function runTick(force) {
     const cnt = L => Object.keys(L.results || {}).length + Object.keys((L.cup && L.cup.results) || {}).length;
     if (!after || after.id !== before.id || cnt(after) < cnt(before)) { console.error("tick refusé : le moteur aurait modifié la saison", before.id, after && after.id); return; }
     store.docs.league = after; // tick est synchrone : aucune écriture n'a pu arriver entre-temps
+    if (res.bdo && res.bdo.n) { const A = store.docs.awards || { list: [] }; if (!A.list.some(x => x.lg === after.id)) { A.list.push({ lg: after.id, season: after.season || 1, n: res.bdo.n, team: res.bdo.team, pts: res.bdo.pts }); store.docs.awards = A; } }
     store.meta = { ...res.meta, nextAt: res.nextSlotAt, pendingSlack: store.meta.pendingSlack || [] };
     persist();
     // Anti-spoil : Slack annonce seulement la fin du match, le résultat se découvre dans l'app.
@@ -282,6 +284,7 @@ const server = http.createServer(async (req, res) => {
     const m = p.match(/^\/api\/docs\/([A-Za-z0-9_\-.]{1,80})$/);
     if (m && req.method === "PUT") {
       const id = m[1], data = JSON.parse(await readBody(req));
+      if (id === "awards") return send(res, 403, { error: "géré par le serveur" });
       if (id.startsWith("seen-")) {
         const u = userOf(req);
         if (AUTH_ON && u !== "admin" && id !== "seen-" + u) return send(res, 403, { error: "interdit" });

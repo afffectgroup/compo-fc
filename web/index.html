@@ -507,6 +507,28 @@ body.view-ai .team-name{pointer-events:none}
 .rv-hdj{display:flex;align-items:center;justify-content:center;gap:6px;margin:8px auto 0;font-size:13px;color:var(--muted)}
 .rv-hdj b{color:var(--fg)}.rv-hdj i{font-style:normal;font:800 10px/1 var(--display);letter-spacing:.06em;padding:3px 6px;border-radius:5px;background:linear-gradient(90deg,#b8892d,#f3d67a,#b8892d);color:#111}
 .rv-hdj.mine{color:var(--fg)}.rv-hdj.mine b{color:#d9b54a}
+.card.bdo{background:linear-gradient(150deg,#fffaf0 0%,#f3e3b0 35%,#d9b54a 70%,#fff3cf 100%)!important;color:#3a2a05!important;box-shadow:0 0 0 2px #e8c55a inset,0 0 16px rgba(240,200,90,.55),0 4px 10px rgba(0,0,0,.35)!important}
+.card.bdo::after{content:"";position:absolute;inset:-40%;background:linear-gradient(115deg,transparent 42%,rgba(255,255,255,.65) 50%,transparent 58%);animation:bdoShine 3.2s linear infinite;pointer-events:none}
+@keyframes bdoShine{from{transform:translateX(-60%)}to{transform:translateX(60%)}}
+.ribbon.bdo-rb{background:linear-gradient(90deg,#7a5a10,#2a1f05,#7a5a10)!important;color:#f6dc86!important}
+.bdo-podium{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:end;max-width:420px;margin:6px auto 16px}
+.bdo-p{display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center}
+.bdo-p .card{width:100%}.bdo-p.r1 .card{transform:scale(1.08);transform-origin:bottom center}
+.bdo-p.r1{order:2}.bdo-p.r2{order:1}.bdo-p.r3{order:3}
+.bdo-rk{font-family:var(--display);font-weight:800;font-size:16px;color:var(--muted)}.bdo-p.r1 .bdo-rk{color:#d9b54a;font-size:20px}
+.bdo-pts{font-size:12px;color:var(--muted)}.bdo-n{font-weight:700;font-size:14px}
+.bdo-p.mine .bdo-pts{color:var(--accent)}
+.rv-pod .bdo-p{opacity:0;animation:bdoIn .6s cubic-bezier(.2,1.4,.4,1) both}
+@keyframes bdoIn{from{opacity:0;transform:translateY(30px) scale(.8)}to{opacity:1}}
+.une{position:relative;margin:4px 0 16px;padding:16px 18px;border-radius:14px;border:1px solid var(--line);background:linear-gradient(180deg,var(--panel-2,#1a2b22),var(--panel));overflow:hidden}
+.une::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent)}
+.une-top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.une-top b{font-family:var(--display);font-weight:800;text-transform:uppercase;letter-spacing:.12em;font-size:13px;color:var(--accent);border-bottom:2px solid var(--accent);padding-bottom:1px}
+.une-top span{font-size:12px;color:var(--muted)}
+.une-h{margin:2px 0 6px;font-family:var(--display);font-weight:800;font-size:clamp(22px,4.5vw,32px);line-height:1.05;text-transform:uppercase;letter-spacing:.01em}
+.une-sub{margin:0;color:var(--muted);font-size:14px}.une-sub b{color:var(--fg);font-weight:600}.une-sub b.mi{color:var(--accent)}
+.une-old{margin-top:10px;font-size:13px;color:var(--muted)}.une-old summary{cursor:pointer}
+.une-old ul{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:5px}.une-old li b{color:var(--fg);margin-right:4px;font-weight:600}
 </style>
 
 <div class="appbar">
@@ -3137,6 +3159,7 @@ function cardFor(p,role){
     if(Math.abs(md.v)>=.5){const mi=el("span","mood "+(md.v>0?"hi":"lo"));mi.innerHTML=md.v>0?'<svg viewBox="0 0 24 24"><path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-7 0 2 1 3 2 3 0-3-1-5 1-8z"/></svg>':'<svg viewBox="0 0 24 24"><path d="M7 16a5 5 0 1 1 1-9.9A6 6 0 0 1 19 9a4 4 0 0 1-1 7z"/><path d="M9 19l-1 2M13 19l-1 2M17 19l-1 2" stroke-width="2"/></svg>';c.append(mi)}
     c.title=`${p.name} — condition ${cnd} %${fm?` · forme ${fm.avg.toFixed(1)} sur les derniers matchs`:""}${md.why.length?" · "+(md.v>=0?"moral : ":"moral en baisse : ")+md.why.join(", "):""}`}
   if(p.base!=null&&p.ovr!==p.base){const pg=el("span","pg "+(p.ovr>p.base?"up":"down"),(p.ovr>p.base?"+":"")+(p.ovr-p.base));meta.append(pg)}
+  {const aw=(window.AWARDS||[]).filter(a=>a.n===p.name&&(!league||a.lg!==league.id));if(aw.length){c.classList.add("bdo");if(!(typeof hdjPending==="function"&&league&&league.results&&hdjPending(p.name)))c.append(el("div","ribbon bdo-rb","BALLON D'OR"));c.title=(c.title||p.name)+` · Ballon d'Or (saison ${aw.map(a=>a.season).join(", ")})`}}
   {const hj=typeof hdjPending==="function"&&league&&league.results?hdjPending(p.name):null;if(hj){c.classList.add("hdj");c.append(el("div","ribbon","HDJ +1"));
     c.title=(c.title||p.name)+` · Homme de la journée (J${hj.k+1}, note ${hj.r.toFixed(1)}) : +1 au prochain match`}}
   if(st){c.classList.add("out");const b=el("div","stb "+st.type);b.append(el("i",st.type==="inj"?"ic-inj":"ic-red"),document.createTextNode(st.left+"J"));b.title=`${st.why} · ${st.left} journée${st.left>1?"s":""}`;c.append(b);c.title=`${p.name} — ${st.why}, absent ${st.left} journée${st.left>1?"s":""}`}
@@ -3656,6 +3679,27 @@ function teamNext(id,after){let best=null;
   league.schedule.forEach((f,k)=>{const x=roundDate(k).getTime();if(x>after&&(!best||x<best.t)&&f.some(([h,a])=>h===id||a===id))best={t:x,kind:"L",i:k}});
   if(league.cup)league.cup.rounds.forEach((R,i)=>{const x=cupDate(R.day).getTime();if(x<=after||(best&&x>=best.t))return;if(league.cup.results[i-1]||i===0)try{ensureCupTies(i)}catch(e){}
     const ties=R.ties||(league.cup.results[i]||[]).map(m=>[m.hId,m.aId]);if((ties||[]).some(([h,a])=>h===id||a===id))best={t:x,kind:"C",i}});return best}
+// Ballon d'Or : points sur toute la saison (championnat + coupe)
+// note au-dessus de 6,5 (×2) · but 3 · passe 2 · homme du match 3 · homme de la journée 5 · clean sheet gardien/défenseur (60 min) 2
+// La Une : le gros titre façon presse de la dernière journée (une fois le résultat révélé)
+function renderUne(box){const U=league.une||{},cup=CUPMODE;const tOf=k=>k[0]==="L"?roundDate(+k.slice(1)).getTime():cupDate(league.cup.rounds[+k.slice(1)].day).getTime();
+  const seen=typeof window.rvSeen==="function"?window.rvSeen():null;
+  const keys=Object.keys(U).filter(k=>U[k]&&(cup?k[0]==="C":k[0]==="L")&&(!seen||seen.has(k))&&(k[0]==="L"||league.cup&&league.cup.rounds[+k.slice(1)])).sort((a,b)=>tOf(a)-tOf(b));if(!keys.length)return;
+  const lab=k=>k[0]==="L"?"J"+(+k.slice(1)+1):league.cup.rounds[+k.slice(1)].name;const k=keys[keys.length-1],d=new Date(tOf(k));
+  const u=el("div","une");const top=el("div","une-top");top.append(el("b",null,"La Une"),el("span",null,`Après ${k[0]==="L"?"la ":"les "}${lab(k)} · ${(s=>s[0].toUpperCase()+s.slice(1))(d.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"}))}`));u.append(top,el("h3","une-h","« "+U[k].replace(/Équipe IA/g,"IA")+" »"));
+  const ms=k[0]==="L"?league.results[+k.slice(1)]:league.cup.results[+k.slice(1)];const L=[];(league.mine||[]).forEach(mm=>{const m=(ms||[]).find(x=>x.hId===mm.id||x.aId===mm.id);if(m&&!L.includes(m))L.push(m)});
+  if(L.length){const sub=el("p","une-sub");L.forEach((m,i)=>{if(i)sub.append(document.createTextNode(" · "));const sp=el("span");sp.append(el("b",isMine(m.hId)?"mi":null,lgTeam(m.hId).name.replace(/^Équipe /,"")),document.createTextNode(` ${m.hs}-${m.as} `),el("b",isMine(m.aId)?"mi":null,lgTeam(m.aId).name.replace(/^Équipe /,"")));sub.append(sp)});u.append(sub)}
+  if(keys.length>1){const det=document.createElement("details");det.className="une-old";det.append(el("summary",null,`Les Unes précédentes (${keys.length-1})`));const ul=el("ul");keys.slice(0,-1).reverse().forEach(x=>{const li=el("li");li.append(el("b",null,lab(x)),document.createTextNode(" « "+U[x].replace(/Équipe IA/g,"IA")+" »"));ul.append(li)});det.append(ul);u.append(det)}
+  box.append(u)}
+function bdoTable(){const S={},pos=n=>(BY[n]&&BY[n].pos[0])||"";
+  const add=m=>["h","a"].forEach(s=>{const tid=s==="h"?m.hId:m.aId,conc=s==="h"?m.as:m.hs;
+    Object.entries((m.ratings&&m.ratings[s])||{}).forEach(([n,rt])=>{const x=S[n]||(S[n]={n,team:tid,pts:0,m:0,g:0,a:0,motm:0,hdj:0,rt:0});x.team=tid;x.m++;x.rt+=rt;x.pts+=Math.max(0,rt-6.5)*2;
+      if(m.motm===n){x.motm++;x.pts+=3}const mins=(m.mins&&m.mins[s]&&m.mins[s][n])||0;if(conc===0&&mins>=60&&/^(GK|CB|LB|RB|LWB|RWB)$/.test(pos(n)))x.pts+=2});
+    (m.goals||[]).filter(g=>g.side===s&&!g.og).forEach(g=>{if(S[g.n]){S[g.n].g++;S[g.n].pts+=3}if(g.a&&S[g.a]){S[g.a].a++;S[g.a].pts+=2}})});
+  Object.entries(league.results||{}).forEach(([k,ms])=>{(ms||[]).forEach(add);const hj=hdjOf(+k);if(hj&&S[hj.n]){S[hj.n].hdj++;S[hj.n].pts+=5}});
+  if(league.cup)Object.values(league.cup.results||{}).forEach(ms=>(ms||[]).forEach(add));
+  return Object.values(S).map(x=>({...x,pts:Math.round(x.pts*10)/10,avg:x.rt/x.m})).sort((a,b)=>b.pts-a.pts||b.avg-a.avg||a.n.localeCompare(b.n))}
+window.AWARDS=[];try{fetch("/api/docs",{cache:"no-store"}).then(r=>r.json()).then(j=>{const d=(j.docs||[]).find(x=>x.id==="awards");if(d&&d.data&&Array.isArray(d.data.list)){window.AWARDS=d.data.list;if(typeof render==="function")render()}}).catch(()=>{})}catch(e){}
 function hdjList(){const out=[];Object.keys(league.results||{}).forEach(k=>{const x=hdjOf(+k);if(!x)return;const nx=teamNext(x.team,roundDate(+k).getTime());if(nx)out.push({...x,target:nx})});return out}
 function hdjPending(n){return HDJ.find(x=>x.n===n&&x.target&&!(x.target.kind==="L"?league.results[x.target.i]:league.cup&&league.cup.results[x.target.i]))||null}
 function statusOf(n,k){if(!ABS||k==null||k<0)return null;const l=ABS.out[n];if(!l)return null;const e=l.find(x=>x.from<=k&&k<=x.to);return e?{type:e.type,why:e.why,left:e.to-k+1}:null}
@@ -3979,8 +4023,9 @@ function renderLeague(){
   const st=standings();
   if(!CUPMODE&&seasonDone()){const ch=el("div","champ");ch.append(el("span",null,"Champion"),el("b",null,st[0].name));
     const nb=el("button","btn primary","Nouvelle saison");nb.onclick=e=>{const b=e.currentTarget;if(!b.dataset.armed){b.dataset.armed=1;b.textContent="Confirmer ? Nouvelles équipes IA";return}createLeague();lgRound=null;runLeague()};ch.append(nb);box.append(ch)}
+  try{renderUne(box)}catch(e){}
   const TABS=CUPMODE?[["cup","Tableau"],["g","Buteurs"],["a","Passeurs"],["cs","Clean sheets"],["motm","Hommes du match"],["rt","Notes"]]
-    :[["table","Classement"],["rounds","Journées"],["g","Buteurs"],["a","Passeurs"],["cs","Clean sheets"],["motm","Hommes du match"],["rt","Notes"],["abs","Absents"],["hist","Palmarès"],["rec","Records"]];
+    :[["table","Classement"],["rounds","Journées"],["bdo","Ballon d'Or"],["g","Buteurs"],["a","Passeurs"],["cs","Clean sheets"],["motm","Hommes du match"],["rt","Notes"],["abs","Absents"],["hist","Palmarès"],["rec","Records"]];
   if(!TABS.some(([k])=>k===lgTab))lgTab=TABS[0][0];
   if(CUPMODE)lgTabC=lgTab;else lgTabL=lgTab;
   const seg=el("div","seg lg-seg");TABS.forEach(([k,l])=>{const b=el("button",lgTab===k?"on":"",l);b.type="button";b.onclick=()=>{lgTab=k;renderLeague()};seg.append(b)});box.append(seg);
@@ -4004,6 +4049,15 @@ function renderLeague(){
     if(C.results[cupLast()]){const w=lgTeam(cupWinnerId(C.results[cupLast()][0]));const ch=el("div","champ cupw");ch.append(el("span",null,"Vainqueur de la coupe"),el("b",null,w.name));box.append(ch)}
     if(typeof lgOpen==="string"&&lgOpen.startsWith("c")){const [i,j]=lgOpen.slice(1).split("-").map(Number),m=C.results[i]&&C.results[i][j];if(m){const d=matchDetail(m);if(m.pens){const pb=el("div","subs");const pc=s=>{const u=el("ul","gcol "+s);m.pens[s].forEach(([n,ok])=>{const li=el("li");li.append(el("i",ok?"ic-ok":"ic-pm"),document.createTextNode(" "+shortName(n)));u.append(li)});return u};pb.append(el("span","sublab","Tirs au but"),el("span"),pc("h"),pc("a"));d.prepend(pb)}box.append(d)}}}
   else if(lgTab==="rec"){renderRecords(box)}
+  else if(lgTab==="bdo"){const T=bdoTable().slice(0,15);
+    if(!T.length){box.append(el("p","note","La course au Ballon d'Or démarre après la première journée."));return}
+    const pod=el("div","bdo-podium");[1,0,2].forEach(i=>{const x=T[i];if(!x)return;const w=el("div","bdo-p r"+(i+1)+(isMine(x.team)?" mine":""));const c=cardFor(BY[x.n]||{name:x.n,ovr:"",pos:[""],nat:"",club:""},"SUB");
+      w.append(el("b","bdo-rk",i===0?"1er":(i+1)+"e"),c,el("span","bdo-pts",x.pts.toLocaleString("fr-FR")+" pts"));pod.append(w)});box.append(pod);
+    const wrap=el("div","tbl-wrap"),t=el("table","lg-table"),thead=el("thead"),th=el("tr");["#","Joueur","Équipe","M","Buts","PD","HDJ","Note","Pts"].forEach((c,i)=>th.append(el("th",i===3||i===7?"hide-s":"",c)));thead.append(th);t.append(thead);const tb=el("tbody");
+    T.forEach((s,i)=>{const p=BY[s.n],tr=el("tr",isMine(s.team)?"mine":""),nm=el("td","tn");if(p)nm.append(flagEl(p.nat,"iflag"));nm.append(document.createTextNode(" "+s.n));
+      [el("td",null,i+1),nm,el("td","muted",lgTeam(s.team).name),el("td","hide-s",s.m),el("td",null,s.g),el("td",null,s.a),el("td",null,s.hdj||"–"),el("td","hide-s",s.avg.toFixed(2)),el("td","pts",s.pts.toLocaleString("fr-FR"))].forEach(x=>tr.append(x));tb.append(tr)});
+    t.append(tb);wrap.append(t);box.append(wrap);
+    box.append(el("p","note","Barème : note au-dessus de 6,5 (×2) · but 3 pts · passe décisive 2 · homme du match 3 · homme de la journée 5 · clean sheet pour un gardien ou un défenseur 2. Championnat et coupe comptent. Le lauréat est sacré à la fin de la saison et garde une carte Ballon d'Or la saison suivante."))}
   else if(lgTab==="hist"){
     const cur=awards(),done=seasonDone(),list=[...(league.history||[]).slice().reverse()];
     const card=(A,title,live)=>{const c=el("div","aw-card");c.append(el("h4",null,title+(live?" · en cours":"")));const g=el("div","aw-grid");
@@ -4712,6 +4766,7 @@ html[data-theme="light"]{background:radial-gradient(1200px 520px at 50% -180px,r
   function events(id){const ev=[];
     Object.entries(league.results||{}).forEach(([k,ms])=>{const m=(ms||[]).find(x=>x.hId===id||x.aId===id);if(m)ev.push({key:"L"+k,t:roundDate(+k).getTime(),m,lab:`Journée ${+k+1} · ${slotHour(+k)}h`,k:+k})});
     if(league.cup)Object.entries(league.cup.results||{}).forEach(([i,ms])=>{const m=(ms||[]).find(x=>x.hId===id||x.aId===id);const R=league.cup.rounds[i];if(m&&R)ev.push({key:"C"+i,t:cupDate(R.day).getTime(),m,lab:`Coupe · ${R.name}`,cup:true,last:+i===league.cup.rounds.length-1})});
+    try{if(seasonDone())ev.push({key:"BDO",t:9e15,lab:"Ballon d'Or · Saison "+(league.season||1),bdo:true,m:{}})}catch(e){}
     return ev.sort((a,b)=>a.t-b.t)}
   // « déjà vu » partagé entre tous tes appareils (doc serveur seen-<toi>) + copie locale
   const SID=()=>"seen-"+window.ME;let srvSeen=null,srvLoaded=null;
@@ -4761,10 +4816,16 @@ html[data-theme="light"]{background:radial-gradient(1200px 520px at 50% -180px,r
     const sb0=el("button","rv-snd");sb0.type="button";const paintS=()=>{const on=sOn();sb0.innerHTML=on?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9l5 6M22 9l-5 6" fill="none"/></svg>';sb0.setAttribute("aria-label",on?"Couper le son":"Activer le son")};paintS();
     sb0.onclick=e=>{e.stopPropagation();try{localStorage.setItem(SK,sOn()?"0":"1")}catch(_){}paintS();if(sOn()){ac();if(!card.classList.contains("is-win")&&!card.classList.contains("is-loss")&&!card.classList.contains("is-draw"))SFX.ambience(true)}else SFX.stop()};
     function intro(){const E=list[idx];card.replaceChildren();card.className="rv-card rv-intro";card.append(sb0,el("div","rv-lab",E.lab+(list.length>1?` · ${list.length} matchs`:"")));
+      if(E.bdo){card.append(el("div","rv-big","La cérémonie"),el("p","rv-sub","La saison est terminée. Qui succède au palmarès ?"));const go=el("button","btn primary rv-go","Découvrir le Ballon d'Or");go.type="button";go.onclick=()=>{ac();play()};card.append(go);setTimeout(()=>go.focus(),30);return}
       const h3=el("div","rv-big","Match terminé");const sub=el("p","rv-sub",`${nm(E.m.hId)} – ${nm(E.m.aId)}`);const go=el("button","btn primary rv-go","Découvrir le résultat");go.type="button";
       go.onclick=()=>{ac();play()};card.append(h3,sub,go);setTimeout(()=>go.focus(),30)}
     function play(){timers.forEach(clearTimeout);timers=[];cancelAnimationFrame(fxRaf);if(play.stop)play.stop();const c=cv.getContext("2d");c.clearRect(0,0,cv.width,cv.height);ov.classList.remove("sad");
       const E=list[idx],m=E.m,home=m.hId===id;card.replaceChildren();card.className="rv-card";card.append(sb0);SFX.stop();
+      if(E.bdo){card.classList.add("rv-bdo");card.append(el("div","rv-lab",E.lab));const T=bdoTable().slice(0,3);const pod=el("div","bdo-podium rv-pod");card.append(pod);const foot=el("div","rv-foot");
+        [1,0,2].forEach(i=>{const x=T[i];if(!x)return;const w=el("div","bdo-p r"+(i+1)+(x.team===id?" mine":""));w.style.animationDelay=(i===2?.5:i===1?1.6:2.9)+"s";w.append(el("b","bdo-rk",i===0?"1er":(i+1)+"e"),cardFor(BY[x.n],"SUB"),el("span","bdo-n",shortName(x.n)),el("span","bdo-pts",`${lgTeam(x.team).name.replace(/^Équipe /,"")} · ${x.pts.toLocaleString("fr-FR")} pts`));pod.append(w)});
+        timers.push(setTimeout(()=>{const W=T[0];if(!W)return;const mine=W.team===id;card.insertBefore(el("div","rv-res win",""),foot).append(el("span",null,shortName(W.n)));card.insertBefore(el("p","rv-motm",mine?"Ton joueur est Ballon d'Or ! Il aura une carte spéciale la saison prochaine.":`Ballon d'Or pour ${nm(W.team)}.`),foot);
+          card.classList.add("is-win");fx(1,true);SFX.win();const nx=el("button","btn primary",idx<list.length-1?"Suivant":"Continuer");nx.type="button";nx.onclick=()=>{if(idx<list.length-1){idx++;play()}else close()};foot.append(nx)},reduce?0:3300));
+        card.append(foot);if(!reduce)timers.push(setTimeout(()=>{SFX.ambience(true)},100));return}
       const my=home?m.hs:m.as,op=home?m.as:m.hs;let res=my>op?1:my<op?-1:0;if(!res&&m.win)res=(m.win==="h")===home?1:-1;
       card.append(el("div","rv-lab",E.lab+(list.length>1?` · ${idx+1}/${list.length}`:"")));
       const ini=n=>/^IA\s*\d+/.test(n)?n.replace(/\s+/g,""):n.split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase();
@@ -4834,6 +4895,7 @@ html[data-theme="light"]{background:radial-gradient(1200px 520px at 50% -180px,r
       fxRaf=requestAnimationFrame(fr)}
 
     if(reduceStart())play();else intro()}
+  window.rvSeen=()=>new Set([...(get()||[]),...(Array.isArray(srvSeen)?srvSeen:[])]);
   window.compoReveal=(list,id)=>show(list,id,()=>{});window.compoRevealCheck=()=>check();
   const _r=render;render=function(){_r.apply(this,arguments);clearTimeout(window._rvT);window._rvT=setTimeout(()=>{try{check()}catch(e){}},700)};
 })();
