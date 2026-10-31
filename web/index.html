@@ -3622,7 +3622,8 @@ function buildDerived(){const hist={},prog={...(league&&league.prog0||{})};
 function slotTime(d,c){return (c==="C"&&typeof cupDate==="function"?cupDate(d):roundDate(d)).getTime()}
 // Deux composantes : fatigue immédiate (s'efface en ~1 jour) + fatigue accumulée (s'efface en plusieurs jours).
 // Jouer tous les matchs sans repos fait passer un joueur dans le rouge (< 80 %), une rotation régulière le garde au vert.
-function conditionOf(n,day){const H=DER.hist[n];if(!H||!league||!league.start)return 100;const t0=roundDate(day).getTime();let acute=0,chronic=0;
+function evTime(day){const cupHere=league.cup&&league.cup.rounds&&league.cup.rounds.some(r=>r.day===day);return (cupHere&&(league.results[day]||!(league.schedule&&league.schedule[day]))?cupDate(day):roundDate(day)).getTime()}
+function conditionOf(n,day){const H=DER.hist[n];if(!H||!league||!league.start)return 100;const t0=evTime(day);let acute=0,chronic=0;
   H.forEach(x=>{const hrs=(t0-slotTime(x.d,x.c))/36e5,w=x.mins/90;if(hrs<=0||hrs>192)return;if(hrs<=96)acute+=w*Math.exp(-hrs/18);chronic+=w*Math.exp(-hrs/60)});
   return Math.round(Math.max(45,Math.min(100,100-11*acute-1.5*chronic)))}
 // Mental : moral d'équipe, confiance, frustration, manque de rythme. Effet plafonné à ±1,5.
@@ -3764,7 +3765,7 @@ function runLeague(){
     const ci=league.cup.rounds.findIndex(x=>x.day===D),needL=league.schedule[D]&&!league.results[D],needC0=ci>=0&&!league.cup.results[ci],needC=needC0&&now>=cupDate(D);if(!needL&&!needC){if(needC0)break;continue}
     refreshAbs();setMods(D);
     if(needL){league.results[D]=league.schedule[D].map(([h,a])=>{const H=adjTeam(lgTeam(h),D),A=adjTeam(lgTeam(a),D),m=simulate(H,A,"L"+league.id+"|"+D+"|"+dstr(d));m.date=dstr(d);m.hGK=gkOf(H);m.aGK=gkOf(A);return m});played++}
-    if(needC){ensureCupTies(ci);const R=league.cup.rounds[ci];if(R.ties){league.cup.results[ci]=R.ties.map(([h,a])=>{const H=adjTeam(lgTeam(h),D),A=adjTeam(lgTeam(a),D),m=simulate(H,A,"C"+league.id+"|"+ci+"|"+dstr(d),{ko:true});m.date=dstr(d);m.hGK=gkOf(H);m.aGK=gkOf(A);return m});played++}}
+    if(needC){if(needL){refreshAbs();setMods(D)}ensureCupTies(ci);const R=league.cup.rounds[ci];if(R.ties){league.cup.results[ci]=R.ties.map(([h,a])=>{const H=adjTeam(lgTeam(h),D),A=adjTeam(lgTeam(a),D),m=simulate(H,A,"C"+league.id+"|"+ci+"|"+dstr(d),{ko:true});m.date=dstr(d);m.hGK=gkOf(H);m.aGK=gkOf(A);return m});played++}}
     MOD={};INJW={};if(needC0&&!needC)break}
   MOD={};INJW={};refreshAbs();renderTabs();
   if(played){saveLeague();if(typeof render==="function")render();toast(played>1?`${played} matchs joués`:`Nouveaux résultats`,3000)}
