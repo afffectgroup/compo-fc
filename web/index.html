@@ -3009,7 +3009,10 @@ function cardFor(p,role){
   const k=typeof nextDay==="function"?nextDay():-1, st=k>=0?statusOf(p.name,k):null;
   if(k>=0&&DER.hist[p.name]){const cnd=conditionOf(p.name,k),fm=formOf(p.name,k);const bar=el("div","cond");const fi=el("i");fi.style.width=cnd+"%";fi.className=cnd>=88?"ok":cnd>=80?"mid":"low";bar.append(fi);c.append(bar);
     if(fm&&Math.abs(fm.bonus)>=.6){const ar=el("span","fm "+(fm.bonus>0?"up":"down"));meta.append(ar)}
-    c.title=`${p.name} — condition ${cnd} %${fm?` · forme ${fm.avg.toFixed(1)} sur les derniers matchs`:""}`}
+    const team=(typeof state!=="undefined"&&state&&[...(state.xi||[]),...(state.bench||[]),...(state.res||[])].includes(p.name))?state:null;
+    const md=moodOf(p.name,k,team);
+    if(Math.abs(md.v)>=.5){const mi=el("span","mood "+(md.v>0?"hi":"lo"));mi.innerHTML=md.v>0?'<svg viewBox="0 0 24 24"><path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-7 0 2 1 3 2 3 0-3-1-5 1-8z"/></svg>':'<svg viewBox="0 0 24 24"><path d="M7 16a5 5 0 1 1 1-9.9A6 6 0 0 1 19 9a4 4 0 0 1-1 7z"/><path d="M9 19l-1 2M13 19l-1 2M17 19l-1 2" stroke-width="2"/></svg>';c.append(mi)}
+    c.title=`${p.name} — condition ${cnd} %${fm?` · forme ${fm.avg.toFixed(1)} sur les derniers matchs`:""}${md.why.length?" · "+(md.v>=0?"moral : ":"moral en baisse : ")+md.why.join(", "):""}`}
   if(p.base!=null&&p.ovr!==p.base){const pg=el("span","pg "+(p.ovr>p.base?"up":"down"),(p.ovr>p.base?"+":"")+(p.ovr-p.base));meta.append(pg)}
   if(st){c.classList.add("out");const b=el("div","stb "+st.type);b.append(el("i",st.type==="inj"?"ic-inj":"ic-red"),document.createTextNode(st.left+"J"));b.title=`${st.why} · ${st.left} journée${st.left>1?"s":""}`;c.append(b);c.title=`${p.name} — ${st.why}, absent ${st.left} journée${st.left>1?"s":""}`}
   else if(k>=0&&ABS&&ABS.yc[p.name]%3===2){const b=el("div","stb warn");b.append(el("i","ic-yel"));b.title="Suspendu au prochain carton jaune";c.append(b)}
@@ -3160,7 +3163,8 @@ function openPicker(t){
   const fPos=document.getElementById("fPos"); fPos.checked=t.role!=="SUB"; fPos.disabled=t.role==="SUB"; setGroup("");
   document.getElementById("q").value="";
   const cur=currentName();
-  document.getElementById("current").textContent=cur?`Actuellement : ${cur}`:"Poste vide";
+  {let extra="";try{const k=nextDay();if(cur&&k>=0&&DER.hist[cur]){const md=moodOf(cur,k,state);extra=` · condition ${conditionOf(cur,k)} %`+(md.why.length?` · ${md.why.join(", ")}`:"")}}catch(e){}
+   document.getElementById("current").textContent=cur?`Actuellement : ${cur}${extra}`:"Poste vide";}
   document.getElementById("removeBtn").hidden=!cur;
   const cb=document.getElementById("capBtn"); cb.hidden=!(cur&&t.kind==="xi"); cb.textContent=state.captain===cur?"Retirer le brassard":"Nommer capitaine";
   document.getElementById("conflict").hidden=true; pending=null;
@@ -3591,17 +3595,51 @@ function allByDay(){if(!league)return[];const L=[];Object.keys(league.results||{
 function minsOf(m,s,n){if(m.mins&&m.mins[s])return m.mins[s][n]||0;return m.ratings&&m.ratings[s]&&m.ratings[s][n]!=null?90:0}
 let DER={hist:{},prog:{}};
 function buildDerived(){const hist={},prog={...(league&&league.prog0||{})};
-  allByDay().forEach(({d,m})=>["h","a"].forEach(s=>{const R=(m.ratings&&m.ratings[s])||{};Object.keys(R).forEach(n=>{(hist[n]||(hist[n]=[])).push({d,mins:minsOf(m,s,n),r:R[n]});
+  allByDay().forEach(({d,m,c})=>["h","a"].forEach(s=>{const R=(m.ratings&&m.ratings[s])||{};Object.keys(R).forEach(n=>{
+    const g=(m.goals||[]).filter(x=>x.side===s&&x.n===n&&!x.og).length,o=s==="h"?"a":"h";
+    const err=(m.misc||[]).some(x=>x.side===s&&x.n===n)||(m.goals||[]).some(x=>x.side===o&&x.og&&x.n===n)||(m.cards||[]).some(x=>x.side===s&&x.n===n&&x.t!=="Y");
+    (hist[n]||(hist[n]=[])).push({d,c,mins:minsOf(m,s,n),r:R[n],g,motm:m.motm===n,err});
     const p=BY[n],mins=minsOf(m,s,n);if(!p||!p.age||mins<30)return;const r=R[n];let dl=0;
     if(p.age<=21)dl=Math.max(0,.1+.08*(r-6.5));else if(p.age<=24)dl=Math.max(0,.05+.05*(r-6.5));else if(p.age>=33)dl=-.1;
     prog[n]=Math.max(-4,Math.min(8,(prog[n]||0)+dl))})}));
   DER={hist,prog};PLAYERS.forEach(p=>{p.ovr=p.base+Math.trunc(prog[p.name]||0)})}
-function conditionOf(n,day){const H=DER.hist[n];if(!H)return 100;let load=0;H.forEach(x=>{const k=day-x.d;if(k===1)load+=x.mins/90;else if(k===2)load+=.6*x.mins/90;else if(k===3)load+=.3*x.mins/90});
-  return Math.round(Math.max(55,Math.min(100,100-8*load)))}
+// Récupération en heures réelles : la nuit (≈19 h entre 14h et 9h) récupère bien plus que la pause 9h → 14h (5 h)
+function slotTime(d,c){return (c==="C"&&typeof cupDate==="function"?cupDate(d):roundDate(d)).getTime()}
+function conditionOf(n,day){const H=DER.hist[n];if(!H||!league||!league.start)return 100;const t0=roundDate(day).getTime();let load=0;
+  H.forEach(x=>{const hrs=(t0-slotTime(x.d,x.c))/36e5;if(hrs<=0||hrs>96)return;load+=(x.mins/90)*Math.exp(-hrs/18)});
+  return Math.round(Math.max(55,Math.min(100,100-12*load)))}
+// Mental : moral d'équipe, confiance, frustration, manque de rythme. Effet plafonné à ±1,5.
+function teamMorale(id,day){if(!league||!id)return{v:0,why:""};const t0=roundDate(day).getTime(),L=[];
+  allByDay().forEach(({d,m,c})=>{if(m.hId!==id&&m.aId!==id)return;if(slotTime(d,c)>=t0)return;const home=m.hId===id,my=home?m.hs:m.as,op=home?m.as:m.hs;
+    let res=my>op?1:my<op?-1:0;if(!res&&m.win)res=(m.win==="h")===home?1:-1;const derby=isMine(m.hId)&&isMine(m.aId);L.push({t:slotTime(d,c),res,derby})});
+  L.sort((a,b)=>b.t-a.t);const W=[1,.8,.6,.45,.3];let s=0;L.slice(0,5).forEach((x,i)=>s+=x.res*W[i]*(x.derby?2:1));
+  const v=Math.max(-1,Math.min(1,s*.35)),last=L.slice(0,5).map(x=>x.res>0?"V":x.res<0?"D":"N").join("");
+  return{v,why:Math.abs(v)>=.3?(v>0?`bonne dynamique (${last})`:`mauvaise passe (${last})`):""}}
+function moodOf(n,day,team){
+  const why=[];let v=0;const H=(DER.hist[n]||[]).filter(x=>x.d<day||(x.d===day&&false));
+  const played=H.filter(x=>x.mins>=20);
+  // Confiance : buts récents, homme du match ; contrecoup d'une erreur (penalty raté, csc, rouge)
+  const last3=played.slice(-3),g3=last3.reduce((s,x)=>s+x.g,0);
+  if(g3>=3){v+=.8;why.push(`${g3} buts sur ses 3 derniers matchs`)}else if(g3>=2){v+=.5;why.push(`${g3} buts sur ses 3 derniers matchs`)}
+  if(played.slice(-2).some(x=>x.motm)){v+=.4;why.push("homme du match récemment")}
+  if(H.slice(-2).some(x=>x.err)){v-=.6;why.push("marqué par une erreur récente")}
+  // Moral d'équipe
+  if(team){const tm=teamMorale(team.id,day);v+=tm.v;if(tm.why)why.push(tm.why)}
+  // Frustration : un bon joueur disponible, laissé sans jouer sur les 3 derniers matchs de son équipe
+  if(team&&BY[n]&&BY[n].ovr>=80){const t0=roundDate(day).getTime(),tm=[];
+    allByDay().forEach(({d,m,c})=>{if((m.hId===team.id||m.aId===team.id)&&slotTime(d,c)<t0)tm.push({d,c})});
+    const recent=tm.slice(-3);
+    if(recent.length===3&&!recent.some(x=>H.some(y=>y.d===x.d&&y.c===x.c&&y.mins>0))&&!recent.some(x=>statusOf(n,x.d))){v-=.5;why.push("frustré : 3 matchs sans jouer")}}
+  // Manque de rythme au retour de blessure
+  if(ABS&&ABS.out[n]){const inj=ABS.out[n].filter(x=>x.type==="inj"&&x.to<day).sort((a,b)=>b.to-a.to)[0];
+    if(inj&&day-inj.to<=2&&!H.some(x=>x.d>inj.to)){v-=.6;why.push("manque de rythme (retour de blessure)")}}
+  v=Math.max(-1.5,Math.min(1.5,v));
+  return{v,why}}
 function formOf(n,day){const H=(DER.hist[n]||[]).filter(x=>x.d<day&&x.mins>=20).slice(-3);if(!H.length)return null;const avg=H.reduce((s,x)=>s+x.r,0)/H.length;
   return{avg,bonus:Math.max(-2,Math.min(2,(avg-6.6)*1.5))}}
 function setMods(day){MOD={};INJW={};const teams=[...league.mine.map(m=>lgTeam(m.id)),...league.ai];
-  teams.forEach(T=>[...(T.xi||[]),...(T.bench||[])].forEach(n=>{if(!n)return;const c=conditionOf(n,day),f=formOf(n,day);MOD[n]=(f?f.bonus:0)-Math.min(2,(100-c)/10*.6);INJW[n]=1+Math.min(.35,(100-c)/60)}))}
+  teams.forEach(T=>[...(T.xi||[]),...(T.bench||[]),...(T.res||[])].forEach(n=>{if(!n)return;const c=conditionOf(n,day),f=formOf(n,day),md=moodOf(n,day,T);
+    MOD[n]=Math.max(-3,Math.min(3,(f?f.bonus:0)+md.v-Math.min(2,(100-c)/10*.6)));INJW[n]=1+Math.min(.35,(100-c)/60)}))}
 function nextDay(){if(!league||!league.schedule)return -1;const c=[];const k=nextRoundIdx();if(k>=0)c.push(k);
   if(league.cup)league.cup.rounds.forEach((r,i)=>{if(!league.cup.results[i])c.push(r.day)});return c.length?Math.min(...c):-1}
 const CUP_NAMES=["Quarts de finale","Demi-finales","Finale"];
@@ -4166,6 +4204,11 @@ document.getElementById("imgBtn").onclick=async e=>{
 .ph-row input:focus{border-color:var(--accent);outline:none}
 .ph-row.bad input{border-color:#e0735a}
 @media (max-width:600px){.ph-row{grid-template-columns:48px minmax(0,1fr) auto auto}.ph-row input{grid-column:1/-1}}
+/* ---- Moral des joueurs ---- */
+.card .mood{position:absolute;left:7%;top:38%;width:20%;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;z-index:2;box-shadow:0 0 0 2px rgba(0,0,0,.15)}
+.card .mood svg{width:70%;height:70%}
+.card .mood.hi{background:#ff8a3d}.card .mood.hi svg{fill:#fff}
+.card .mood.lo{background:#6b7f99}.card .mood.lo svg{fill:#fff;stroke:#fff}
 /* ---- Finitions design ---- */
 .row .who b{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .row .where{font-family:var(--body);font-size:11px;font-weight:600;letter-spacing:.02em;padding:1px 8px;border-radius:999px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted)}
