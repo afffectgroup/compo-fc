@@ -68,8 +68,72 @@ const REPORT_JS = String.raw`
     const derby=mineIds.has(home?m.aId:m.hId);
     return (derby?"⚔️ Derby · ":"")+lab+" de "+me+" ("+sc+") contre "+(derby?first(opName):opName);
   }
-  function block(title,ms){
-    const L=["*<{{APP}}|"+title+">*"];const done=new Set();let n=0;
+  // ---- La une : un gros titre façon presse sportive, tiré du fait le plus marquant de nos matchs ----
+  function pickV(arr,seed){let x=0;for(const c of seed)x=(x*31+c.charCodeAt(0))>>>0;return arr[x%arr.length]}
+  function headline(ms,key,cupRound){
+    const ev=[];
+    let stBefore=null,stAfter=null;
+    // classement tel qu'il était juste avant / juste après cette journée (pas celui de fin de rattrapage)
+    if(!cupRound&&league.results[key]){const all=league.results,upto=k=>{const o={};Object.keys(all).forEach(x=>{if(+x<=k)o[x]=all[x]});return o};
+      try{league.results=upto(key);stAfter=standings();league.results=upto(key-1);stBefore=standings()}finally{league.results=all}}
+    const pos=(st,id)=>st?st.findIndex(s=>s.id===id)+1:0;
+    league.mine.forEach(mm=>{
+      const id=mm.id,m=ms.find(x=>x.hId===id||x.aId===id);if(!m)return;
+      const home=m.hId===id,me=first(nm(id)),oppId=home?m.aId:m.hId,opp=mineIds.has(oppId)?first(nm(oppId)):nm(oppId);
+      const my=home?m.hs:m.as,op=home?m.as:m.hs,side=home?"h":"a";
+      let res=my>op?1:my<op?-1:0;if(!res&&m.win)res=(m.win==="h")===home?1:-1;
+      const add=(p,arr)=>ev.push({p,t:pickV(arr,league.id+key+me+p)});
+      // Derby
+      if(mineIds.has(oppId)){if(!home)return;
+        const a=first(nm(m.hId)),b=first(nm(m.aId)),w=res>0?a:b,l=res>0?b:a;
+        if(m.hs===m.as&&!m.win)add(100,["Partage des points chez les Déniel","Derby sans vainqueur, l'honneur est sauf","Statu quo dans la famille"]);
+        else if(Math.abs(m.hs-m.as)>=3)add(110,[w+" écrase "+l+" dans le derby",w+" corrige son frère",l+" humilié par "+w]);
+        else add(105,[w+" s'offre le derby",w+" règne sur la famille",l+" s'incline face à son frère"]);
+        return}
+      // Déroulé du match : remontada, but décisif tardif
+      const gs=(m.goals||[]).slice().sort((x,y)=>x.m-y.m);let s1=0,s2=0,worst=0,lastLevelBreak=null;
+      gs.forEach(g=>{if(g.side===side)s1++;else s2++;worst=Math.min(worst,s1-s2);if(g.side===side&&s1-s2===1&&s1+s2===my+op&&res>0)lastLevelBreak=g.m});
+      if(res>0&&worst<=-2)add(95,[me+" renverse tout",me+" signe une remontada folle","Remontada : "+me+" revient de nulle part"]);
+      else if(res>0&&worst<=-1)add(70,[me+" fait preuve de caractère",me+" renverse "+opp,"Mené, "+me+" finit par s'imposer"]);
+      if(res>0&&lastLevelBreak>=85&&my-op===1)add(86,[me+" arrache la victoire au bout du suspense",me+" crucifie "+opp+" sur le fil","Coup de théâtre : "+me+" l'emporte à la "+lastLevelBreak+"e"]);
+      if(!res&&gs.length&&gs[gs.length-1].side===side&&gs[gs.length-1].m>=85)add(64,[me+" arrache le nul sur le fil",me+" sauve les meubles in extremis"]);
+      if(res<0&&op-my>=3)add(90,[me+" humilié par "+opp,"Naufrage pour "+me,me+" sombre face à "+opp,"Soirée cauchemar pour "+me]);
+      if(res>0&&my-op>=3)add(80,[me+" écrase "+opp,"Démonstration de "+me,me+" déroule face à "+opp]);
+      // Exploits individuels
+      const sc={};gs.filter(g=>g.side===side&&!g.og).forEach(g=>sc[g.n]=(sc[g.n]||0)+1);
+      Object.entries(sc).forEach(([n,k])=>{if(k>=3)add(78,["Triplé de "+shortName(n)+", "+me+" jubile",shortName(n)+" porte "+me+" avec un triplé"])});
+      const T=book.teams.find(t=>t.id===id);const resv=(T&&T.resv)||[];
+      Object.keys(sc).forEach(n=>{if(resv.includes(n))add(62,["Le jeune "+shortName(n)+" fait briller "+me,shortName(n)+", la pépite de "+me+", fait trembler les filets"])});
+      // Coups durs
+      (m.cards||[]).filter(c=>c.side===side&&c.t!=="Y").forEach(c=>add(52,["Coup dur pour "+me+" : "+shortName(c.n)+" expulsé",shortName(c.n)+" voit rouge, "+me+" fulmine"]));
+      (m.inj||[]).filter(x=>x.side===side&&x.d>=2&&BY[x.n]&&BY[x.n].ovr>=85).forEach(x=>add(55,[me+" perd "+shortName(x.n)+" sur blessure","Inquiétude chez "+me+" : "+shortName(x.n)+" blessé"]));
+      // Coupe
+      if(cupRound){const last=cupRound.name==="Finale";
+        if(last&&res>0)add(120,[me+" soulève la coupe !","La coupe est pour "+me,me+" entre dans l'histoire"]);
+        else if(last)add(98,[me+" échoue en finale","Si près du but pour "+me]);
+        else if(res>0)add(m.pens?88:76,m.pens?[me+" passe aux tirs au but","Nerfs d'acier : "+me+" qualifié aux tirs au but"]:[me+" file au tour suivant",me+" poursuit l'aventure en coupe"]);
+        else add(m.pens?93:92,m.pens?["Cruelle élimination aux tirs au but pour "+me]:["Fin de l'aventure en coupe pour "+me,me+" sorti par "+opp,me+" dit adieu à la coupe"])}
+      // Classement et séries (championnat)
+      if(stAfter){const pa=pos(stAfter,id),pb=pos(stBefore,id),f=stAfter.find(s=>s.id===id).form;
+        if(pa===1&&pb!==1)add(88,[me+" prend la tête !",me+" s'empare du fauteuil de leader","Nouveau leader : "+me]);
+        if(pb===1&&pa!==1)add(66,[me+" perd sa place de leader","Fin du règne pour "+me]);
+        const tail=(arr,v)=>{let k=0;for(let i=arr.length-1;i>=0&&arr[i]===v;i--)k++;return k};
+        const w=tail(f,"V"),l=tail(f,"D");let nw=0;for(let i=f.length-1;i>=0&&f[i]!=="V";i--)nw++;
+        if(w>=3)add(60+w*2,[me+" ne s'arrête plus ("+w+" victoires de suite)",me+" enchaîne une "+w+"e victoire","Série en cours : "+w+" sur "+w+" pour "+me]);
+        if(l>=3)add(62+l*2,["La crise s'installe chez "+me,me+" s'enfonce ("+l+" défaites de suite)"]);
+        else if(nw>=4)add(58,[me+" cale encore ("+nw+" matchs sans victoire)","Le doute s'installe chez "+me]);
+        if(pa>pb+1)add(45,[me+" chute au classement ("+pa+"e)"]);}
+      // Par défaut
+      if(res>0)add(m.as===0&&home||m.hs===0&&!home?32:25,[me+" s'impose face à "+opp,"Victoire précieuse pour "+me,me+" fait le travail"]);
+      else if(res<0)add(22,[me+" chute face à "+opp,"Revers pour "+me,"Jour sans pour "+me]);
+      else add(15,[me+" accroché par "+opp,"Match nul pour "+me]);
+    });
+    if(!ev.length)return "";
+    ev.sort((a,b)=>b.p-a.p);return ev[0].t;
+  }
+  function block(title,ms,key,cupRound){
+    const L=["*<{{APP}}|"+title+">*"];
+    try{const hl=headline(ms,key,cupRound);if(hl)L.push("_« "+hl+" »_")}catch(e){}const done=new Set();let n=0;
     league.mine.forEach(mm=>{const m=ms.find(x=>x.hId===mm.id||x.aId===mm.id);if(!m||done.has(m))return;done.add(m);
       if(n++)L.push("────────");L.push("• "+teamLine(m,mm.id));
       // Rouges et blessures de nos équipes, sur une ligne en dessous
@@ -82,11 +146,11 @@ const REPORT_JS = String.raw`
   }
   function results(D){
     const lr=league.results[D];if(!lr)return "";
-    return block("⚽ Journée "+(D+1)+" à "+slotHour(D)+"h",lr);
+    return block("⚽ Journée "+(D+1)+" à "+slotHour(D)+"h",lr,D,null);
   }
   function cupResults(i){
     const R=league.cup.rounds[i],res=league.cup.results[i];if(!res)return "";
-    return block("🏆 Coupe · "+R.name+" à "+CUP_HOUR+"h",res);
+    return block("🏆 Coupe · "+R.name+" à "+CUP_HOUR+"h",res,"c"+i,R);
   }
   function reminder(k){
     refreshAbs();setMods(k);
