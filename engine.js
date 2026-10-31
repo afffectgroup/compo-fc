@@ -62,11 +62,11 @@ const REPORT_JS = String.raw`
     const home=m.hId===id,my=home?m.hs:m.as,op=home?m.as:m.hs,opName=home?m.aName:m.hName,me=first(home?m.hName:m.aName);
     let win=my>op?1:my<op?-1:0;
     if(!win&&m.win)win=(m.win==="h")===home?1:-1;
-    const lab=win>0?"✅ Victoire":win<0?"❌ Défaite":"🤝 Nul";
+    const lab=win>0?"Victoire":win<0?"Défaite":"Nul";
     let sc=my+"-"+op;
     if(m.pens){const ph=m.pens.h.filter(x=>x[1]).length,pa=m.pens.a.filter(x=>x[1]).length;sc+=", "+(home?ph+"-"+pa:pa+"-"+ph)+" aux t.a.b."}else if(m.et)sc+=" a.p.";
     const derby=mineIds.has(home?m.aId:m.hId);
-    return (derby?"⚔️ Derby · ":"")+lab+" de "+me+" ("+sc+") contre "+(derby?first(opName):opName);
+    return (derby?"Derby · ":"")+lab+" de "+me+" ("+sc+") contre "+(derby?first(opName):opName);
   }
   // ---- La une : un gros titre façon presse sportive, tiré du fait le plus marquant de nos matchs ----
   function pickV(arr,seed){let x=0;for(const c of seed)x=(x*31+c.charCodeAt(0))>>>0;return arr[x%arr.length]}
