@@ -398,7 +398,7 @@ body.view-ai .team-name{pointer-events:none}
 .watch-btn.on{border-color:var(--accent,#7ee08a)}
 #watchWrap{margin-top:14px}
 .wslot{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px}
-.wslot .slot{cursor:default}
+.watch .slot:hover .card{transform:none}
 .watch .cond,.watch .mood{display:none!important}
 .watch .slot>.nm{display:none}
 .watch .slot .empty{font-size:15px}
@@ -3079,7 +3079,8 @@ function dragOver(){if(!drag||!drag.ghost)return;
   drag.ghost.hidden=true;const under=document.elementFromPoint(drag.cx,drag.cy);drag.ghost.hidden=false;
   const t=under&&under.closest(".slot[data-kind]");
   if(drag.over&&drag.over!==t)drag.over.classList.remove("drop-on");
-  if(t&&t!==drag.s){t.classList.add("drop-on");drag.over=t}else drag.over=null}
+  const okT=t&&((t.dataset.kind==="watch")===(drag.s.dataset.kind==="watch"));
+  if(t&&okT&&t!==drag.s){t.classList.add("drop-on");drag.over=t}else drag.over=null}
 // Défilement automatique quand la carte approche du haut ou du bas de l'écran
 function dragScroll(){const d=drag;if(!d||!d.ghost){if(d)d.raf=0;return}
   const z=edges();let dir=0,depth=0;
@@ -3099,6 +3100,7 @@ function endDrag(e){
   if(d.over)d.over.classList.remove("drop-on");
   if(e.type!=="pointerup"||!d.over)return;
   const a=[d.s.dataset.kind,+d.s.dataset.i],b=[d.over.dataset.kind,+d.over.dataset.i];
+  if(a[0]==="watch"||b[0]==="watch"){if(a[0]!==b[0])return;const W=state.watch||[],[m]=W.splice(a[1],1);W.splice(b[1],0,m);render();return}
   const va=state[a[0]][a[1]],vb=state[b[0]][b[1]];
   state[a[0]][a[1]]=vb||null;state[b[0]][b[1]]=va;render();
 }
@@ -3197,8 +3199,9 @@ let watchOpen=false;try{watchOpen=localStorage.getItem("compo-fc-watch")==="1"}c
 function renderWatch(){const wb=document.getElementById("watchBtn"),ww=document.getElementById("watchWrap"),box=document.getElementById("watch");if(!wb||!box)return;
   const W=(state.watch||[]).filter(n=>BY[n]);wb.hidden=RO()&&!W.length;document.getElementById("watchN").textContent=W.length?String(W.length):"";
   wb.setAttribute("aria-expanded",watchOpen);wb.classList.toggle("on",watchOpen);ww.hidden=!watchOpen||wb.hidden;box.replaceChildren();if(ww.hidden)return;
-  W.forEach(n=>{const p=BY[n],w=el("div","wslot"),c=el("div","slot");c.append(cardFor(p,"SUB"));w.append(c);
-    if(!RO()){const x=el("button","wdel","×");x.type="button";x.title=`Retirer ${n}`;x.setAttribute("aria-label",`Retirer ${n} des joueurs à surveiller`);
+  W.forEach((n,i)=>{const p=BY[n],w=el("div","wslot"),c=el("div","slot");c.append(cardFor(p,"SUB"));c.dataset.player=n;c.dataset.kind="watch";c.dataset.i=i;
+    c.querySelectorAll("[title],[data-tip]").forEach(x=>{x.removeAttribute("title");x.removeAttribute("data-tip")});w.append(c);
+    if(!RO()){const x=el("button","wdel","×");x.type="button";x.setAttribute("aria-label",`Retirer ${n} des joueurs à surveiller`);
       x.onclick=()=>{state.watch=(state.watch||[]).filter(v=>v!==n);render()};w.append(x)}
     box.append(w)});
   if(!RO()){const add=slotBtn(null,"SUB","Ajouter",()=>openPicker({kind:"watch",i:0,role:"SUB"}));add.setAttribute("aria-label","Ajouter un joueur à surveiller");box.append(add)}}
