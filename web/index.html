@@ -4700,7 +4700,7 @@ html[data-theme="light"]{background:radial-gradient(1200px 520px at 50% -180px,r
   async function check(){if(busy||!league||!league.results||document.querySelector(".overlay:not([hidden])"))return;const id=myId();if(!id)return;
     busy=true;try{await loadSrv()}catch(e){}busy=false;if(document.querySelector(".overlay:not([hidden])"))return;
     const ev=events(id),loc=get(),srv=Array.isArray(srvSeen)?srvSeen:null;
-    if(!loc&&!srv){const cut=Date.now()-3*36e5;save(ev.filter(e=>e.t<cut).map(e=>e.key));return check()} // tout premier lancement : l'historique ancien est considéré comme vu
+    if(!loc&&!srv){const cut=Math.min(Date.now()-3*36e5,Date.parse("2026-11-01T00:00:00+01:00"));save(ev.filter(e=>e.t<cut).map(e=>e.key));return check()} // tout premier lancement : seuls les matchs d'avant la mise en service (ou vieux de 3 h) sont considérés comme vus
     const seen=[...new Set([...(loc||[]),...(srv||[])])];const fresh=ev.filter(e=>!seen.includes(e.key));
     if(!fresh.length){if(!loc||!srv||loc.length!==seen.length)set(seen);return}
     busy=true;save([...seen,...fresh.map(e=>e.key)]); // marqué vu dès l'ouverture : ne revient pas même si l'app est fermée en cours
