@@ -387,8 +387,8 @@ body.view-ai .team-name{pointer-events:none}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 .opn{display:inline-block;margin-left:4px;padding:0 5px;border-radius:5px;background:var(--panel-2,#1a2b22);border:1px solid var(--line,#2a3f33);font-weight:700;font-size:.92em;line-height:1.35}
 .fms{display:inline-flex;gap:2px;margin-left:4px;vertical-align:-1px}
-.fm{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:4px;font-style:normal;font-weight:700;font-size:10px;color:#fff;line-height:1}
-.fm.v{background:#2f9e55}.fm.n{background:#8a8f96}.fm.d{background:#d0453b}
+.ofm{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:4px;font-style:normal;font-weight:700;font-size:10px;color:#fff;line-height:1}
+.ofm.v{background:#2f9e55}.ofm.n{background:#8a8f96}.ofm.d{background:#d0453b}
 .res-top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .res-top .res-h{margin:0}
 .watch-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;font-size:13px}
@@ -3701,7 +3701,7 @@ function oppInfo(id){try{const T=lgTeam(id),xs=(T&&T.xi||[]).filter(n=>n&&BY[n])
   Object.entries(league.results||{}).forEach(([k,ms])=>ms.forEach(m=>{if(m.hId===id||m.aId===id)L.push({t:roundDate(+k).getTime(),m})}));
   if(league.cup)Object.entries(league.cup.results||{}).forEach(([i,ms])=>(ms||[]).forEach(m=>{if(m.hId===id||m.aId===id)L.push({t:cupDate(league.cup.rounds[i].day).getTime(),m})}));
   const f=L.sort((a,b)=>a.t-b.t).slice(-3).map(({m})=>{const h=m.hId===id,my=h?m.hs:m.as,op=h?m.as:m.hs;let r=my>op?1:my<op?-1:0;if(!r&&m.win)r=(m.win==="h")===h?1:-1;
-    return `<i class="fm ${r>0?"v":r<0?"d":"n"}" title="${h?"Contre":"À"} ${lgTeam(h?m.aId:m.hId).name} : ${m.hs}-${m.as}">${r>0?"V":r<0?"D":"N"}</i>`}).join("");
+    return `<i class="ofm ${r>0?"v":r<0?"d":"n"}" title="${h?"Contre":"À"} ${lgTeam(h?m.aId:m.hId).name} : ${m.hs}-${m.as}">${r>0?"V":r<0?"D":"N"}</i>`}).join("");
   return (note?` <span class="opn" title="Note du onze">${note}</span>`:"")+(f?` <span class="fms" title="3 derniers matchs">${f}</span>`:"")}catch(e){return ""}}
 function nextDay(){if(!league||!league.schedule)return -1;const c=[];const k=nextRoundIdx();if(k>=0)c.push(k);
   if(league.cup)league.cup.rounds.forEach((r,i)=>{if(!league.cup.results[i])c.push(r.day)});return c.length?Math.min(...c):-1}
