@@ -133,7 +133,7 @@ const REPORT_JS = String.raw`
   }
   function block(title,ms,key,cupRound){
     const L=["*<{{APP}}|"+title+">*"];
-    try{const hl=headline(ms,key,cupRound);if(hl)L.push("_« "+hl+" »_")}catch(e){}const done=new Set();let n=0;
+    try{const hl=headline(ms,key,cupRound);if(hl)L[0]+=" : _« "+hl+" »_"}catch(e){}const done=new Set();let n=0;
     league.mine.forEach(mm=>{const m=ms.find(x=>x.hId===mm.id||x.aId===mm.id);if(!m||done.has(m))return;done.add(m);
       if(n++)L.push("────────");L.push("• "+teamLine(m,mm.id));
       // Rouges et blessures de nos équipes, sur une ligne en dessous
