@@ -4417,10 +4417,11 @@ html[data-theme="light"]{background:radial-gradient(1200px 520px at 50% -180px,r
   const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2, lin=t=>t, out=t=>1-Math.pow(1-t,2.2);
   // piste : [[t,x,y,h?,easing?]] -> position au temps t
   function at(tr,t){if(t<=tr[0][0])return tr[0];for(let i=1;i<tr.length;i++){const a=tr[i-1],b=tr[i];if(t<=b[0]){const f=(b[4]||ease)((t-a[0])/Math.max(1e-6,b[0]-a[0]));
-        const hh=(b[5]!=null)?b[5]*4*f*(1-f):((a[3]||0)+((b[3]||0)-(a[3]||0))*f);return [t,a[1]+(b[1]-a[1])*f,a[2]+(b[2]-a[2])*f,hh]}}return tr[tr.length-1]}
+        const hh=(b[5]!=null)?b[5]*4*f*(1-f)+((a[3]||0)+((b[3]||0)-(a[3]||0))*f)*(b[5]?0:1):((a[3]||0)+((b[3]||0)-(a[3]||0))*f);let x=a[1]+(b[1]-a[1])*f,y=a[2]+(b[2]-a[2])*f;
+        if(b[6]){const dx=b[1]-a[1],dy=b[2]-a[2],d=Math.hypot(dx,dy)||1,o=b[6]*4*f*(1-f);x+=-dy/d*o;y+=dx/d*o}return [t,x,y,hh]}}return tr[tr.length-1]}
   function scenario(m,g,idx){
     const R=rngOf(hstr((m.date||"")+m.hId+m.aId+"|"+idx+"|"+g.n+"|"+g.m)),r=()=>R(),pick=(a,b)=>a+(b-a)*r();
-    const S=g.side,O=S==="h"?"a":"h";const gkO=S==="h"?m.aGK:m.hGK;
+    const S=g.side,O=S==="h"?"a":"h";let style="";const gkO=S==="h"?m.aGK:m.hGK;
     const ty=r()<.5?pick(31,32.6):pick(35.4,37);const P=[];let ball,shotT,kind="jeu";
     const add=(side,name,tr,role)=>P.push({side,name,tr,role});
     const mates=(m.mins&&m.mins[S])?Object.keys(m.mins[S]).filter(n=>n!==g.n&&n!==g.a&&n!==(S==="h"?m.hGK:m.aGK)):[];
@@ -4453,29 +4454,65 @@ html[data-theme="light"]{background:radial-gradient(1200px 520px at 50% -180px,r
       add(O,g.n,[[0,96,dy-3],[1.6,dx-.4,dy-.6],[2.05,dx,dy],[2.6,dx+.8,dy]],"key");
       add(O,gkO,[[0,104.2,34],[1.6,103.4,dy],[2.5,103.8,dy]],"gk");
       for(let i=0;i<3;i++){add(O,null,[[0,90+i*2,20+i*12],[2,94+i,26+i*7]])}}
-    else{const a=g.a,wing=r()<.55,yW=r()<.5?pick(8,16):pick(52,60);const sx=pick(92,97),sy=pick(25,43);
-      const s0=[pick(42,52),pick(18,50)];
-      if(a){shotT=4.1;
-        const ax=wing?pick(72,80):pick(68,76),ay=wing?yW:pick(24,44),ax2=wing?pick(88,95):pick(82,86),ay2=wing?yW+(yW<34?4:-4):ay+pick(-5,5);
-        ball=[[0,...s0,0],[1.1,ax,ay,0],[2.3,ax2,ay2,0,lin],[3.25,sx,sy,0,ease,wing?2.6:0],[shotT,L+.4,ty,wing?.9:.5,out]];
-        add(S,mate(),[[0,s0[0]-.8,s0[1]],[1,s0[0]+3,s0[1]],[3,s0[0]+12,s0[1]+3]],"run");
-        add(S,a,[[0,ax-6,ay+(r()-.5)*6],[1.1,ax,ay],[2.3,ax2,ay2],[3.4,ax2+1.5,ay2]],"ast");
-        add(S,g.n,[[0,sx-16,sy+(r()<.5?-7:7)],[2.3,sx-5,sy+(r()-.5)*4],[3.25,sx,sy],[4.3,sx+2,sy]],"key");
-        add(O,op(),[[0,ax+2,ay+3],[1.1,ax+4,ay+1.5],[2.3,ax2-1.5,ay2+(ay2<34?2:-2)],[3,ax2,ay2]],"mark");
-        add(O,op(),[[0,sx-10,sy+4],[2.3,sx-3,sy+2.5],[3.4,sx-.8,sy+1.4]],"mark")}
-      else{shotT=3.3;const d0=[pick(58,66),pick(20,48)],d1=[pick(80,86),pick(22,46)];
-        ball=[[0,...s0,0],[.9,...d0,0],[2.4,...d1,0,lin],[shotT,L+.4,ty,1.1,out]];
-        add(S,mate(),[[0,s0[0]-.8,s0[1]],[.9,s0[0]+4,s0[1]+2],[3,s0[0]+14,s0[1]]],"run");
-        add(S,g.n,[[0,d0[0]-8,d0[1]+3],[.9,d0[0],d0[1]],[2.4,d1[0],d1[1]],[3.5,d1[0]+3,d1[1]]],"key");
-        add(O,op(),[[0,d0[0]+8,d0[1]-2],[1.5,(d0[0]+d1[0])/2+1,(d0[1]+d1[1])/2+1.5],[2.2,d1[0]-1,d1[1]+2],[3,d1[0]-2,d1[1]+3]],"mark");
-        add(O,op(),[[0,d1[0]+6,d1[1]-4],[2.3,d1[0]+2,d1[1]-1.5],[3.2,d1[0]+1,d1[1]-1]],"mark")}
-      add(O,gkO,[[0,103.5,34],[shotT-.7,103.2,(34+ty)/2],[shotT+.05,103.9,ty+(ty<34?2:-2)]],"gk");
-      for(let i=0;i<3;i++){add(O,null,[[0,90,22+i*12],[shotT,95,26+i*8]]);}
-      add(S,null,[[0,78,34+(r()-.5)*20],[shotT,90,34+(r()-.5)*16]])}
+    else{ // action de jeu : le scénario dépend du poste du buteur (et du passeur)
+      const grp=n=>{const P=(BY[n]&&BY[n].pos)||[];const q=P[0]||"";return q==="GK"?"gk":/^(ST|CF)$/.test(q)?"fwd":/^(LW|RW|LM|RM)$/.test(q)?"wing":/^(CAM|CM)$/.test(q)?"am":q==="CDM"?"dm":/^(CB)$/.test(q)?"cb":/^(LB|RB|LWB|RWB)$/.test(q)?"fb":"am"};
+      const G=grp(g.n),A=g.a,AG=A?grp(A):null,ch=a=>a[Math.floor(r()*a.length)];
+      const opts={fwd:A?(AG==="wing"||AG==="fb"?["tapin","header","header","tapin","turn"]:["oneone","chip","round","turn","oneone"]):["round","oneone","turn","solo"],
+        wing:A?["curl","curl","nearpost","oneone"]:["curl","nearpost","solo"],am:A?["long","onetwo","edge","oneone"]:["long","solo","edge"],
+        dm:["rocket","rocket","long"],cb:A?["header","header","scramble"]:["scramble"],fb:A?["overlap","overlap","long"]:["overlap","long"],gk:["long"]}[G];
+      style=ch(opts);const side=r()<.5?-1:1,wy=y=>side<0?y:H-y; // côté de l'action (haut/bas)
+      const runM=(t1,x,y)=>add(S,mate(),[[0,x-6,y],[t1,x,y],[t1+1.5,x+4,y]],"run"),def=(tr)=>add(O,op(),tr,"mark"),defs=n=>{for(let i=0;i<n;i++)add(O,null,[[0,91+i,26+i*6],[4.5,96+i*.5,28+i*5]])};
+      if(style==="tapin"){const bx=pick(100,102.5),by=wy(pick(9,14)),sx=pick(98.5,101),sy=pick(31.5,36.5);shotT=3.05;
+        ball=[[0,pick(76,82),wy(pick(6,10)),0],[1.6,bx,by,0,lin],[2.75,sx,sy,0],[shotT,L+.4,ty,.2,out]];
+        add(S,A,[[0,pick(76,82)-1,wy(8)],[1.6,bx-.6,by],[2.8,bx-1,by+(side<0?2:-2)]],"ast");
+        add(S,g.n,[[0,90,sy+(side<0?6:-6)],[2,96,sy],[2.75,sx,sy],[3.4,sx+1.5,sy]],"key");def([[0,92,sy+(side<0?3:-3)],[2.75,sx-1,sy+1.3]]);defs(2)}
+      else if(style==="header"){const cx=pick(84,90),cy=wy(pick(6,12)),hx=pick(95,99),hy=pick(30,38);shotT=3.0;
+        ball=[[0,cx-12,cy+(side<0?4:-4),0],[1.4,cx,cy,0],[2.55,hx,hy,2.2,ease,3.3],[shotT,L+.4,ty,1,out]];
+        add(S,A,[[0,cx-13,cy+(side<0?4:-4)],[1.4,cx-.5,cy],[2.6,cx+1,cy]],"ast");
+        add(S,g.n,[[0,88,hy+(r()<.5?-6:6)],[1.8,92,hy],[2.55,hx,hy],[3.3,hx+1.2,hy]],"key");def([[0,90,hy+2],[2.55,hx-1.1,hy+1]]);defs(2)}
+      else if(style==="oneone"||style==="chip"||style==="round"){const px=pick(66,74),py=pick(26,42),rx=pick(84,88),ry=pick(26,42),dx=pick(93,96),dy=ry+(34-ry)*.5;
+        shotT=style==="round"?4.15:3.45;const gkOut=[pick(98.5,100),dy+(r()-.5)*2];
+        if(style==="round"){const ox=gkOut[0]+1,oy=gkOut[1]+(r()<.5?-3.5:3.5);ball=[[0,px,py,0],[1.15,rx,ry,0,lin],[2.4,dx,dy,0,lin],[3.3,ox,oy,0,lin],[shotT,L+.4,34+(oy-34)*.4,0,lin]];
+          add(S,g.n,[[0,rx-9,ry+(r()-.5)*6],[1.15,rx,ry],[2.4,dx,dy],[3.3,ox,oy],[4.4,ox+2.5,oy]],"key");add(O,gkO,[[0,103.5,34],[2.4,gkOut[0],gkOut[1]],[3.2,gkOut[0]-.5,gkOut[1]+(oy>gkOut[1]?-1.5:1.5)],[4.2,gkOut[0]-.5,gkOut[1]+(oy>gkOut[1]?-1.5:1.5)]],"gk")}
+        else{ball=[[0,px,py,0],[1.15,rx,ry,0,lin],[2.5,dx,dy,0,lin],[shotT,L+.4,ty,style==="chip"?.5:.15,style==="chip"?ease:out,style==="chip"?2.6:null]];
+          add(S,g.n,[[0,rx-9,ry+(r()-.5)*6],[1.15,rx,ry],[2.5,dx,dy],[3.6,dx+2.5,dy]],"key");add(O,gkO,[[0,103.5,34],[2.5,gkOut[0],gkOut[1]],[shotT,gkOut[0]+(style==="chip"?.3:0),gkOut[1]+(style==="chip"?0:(ty<34?-1.3:1.3))]],"gk")}
+        add(S,A,[[0,px-5,py],[1.15,px,py],[2.4,px+6,py]],"ast");def([[0,rx-3,ry+3],[1.2,rx-3,ry+2],[2.5,dx-3,dy+2]]);defs(1);style+="!" }
+      else if(style==="turn"){const px=pick(72,78),py=pick(28,40),sx=pick(89,93),sy=pick(29,39);shotT=2.75;
+        ball=[[0,px,py,0],[1.0,sx,sy,0,lin],[1.95,sx+.6,sy+(r()<.5?-1.5:1.5),0],[shotT,L+.4,ty,.4,out]];
+        add(S,A,[[0,px-4,py],[1,px,py],[2.6,px+5,py]],"ast");add(S,g.n,[[0,sx+.5,sy],[1,sx,sy],[1.95,sx+.6,sy+(r()<.5?-1.5:1.5)],[3,sx+1.5,sy]],"key");
+        def([[0,sx+1.4,sy+.3],[1,sx+1.1,sy],[1.9,sx+1.4,sy+.8],[2.8,sx+2,sy+1]]);defs(2)}
+      else if(style==="curl"||style==="nearpost"){const rx=pick(78,84),ry=wy(pick(8,14));const near=style==="nearpost";
+        const sx=near?pick(94,97):pick(86,90),sy=near?wy(pick(13,18)):wy(pick(19,25)),tgt=near?(side<0?pick(30.8,31.8):pick(36.2,37.2)):(side<0?pick(35.6,37.1):pick(30.9,32.4));shotT=near?3.1:3.25;
+        ball=[[0,pick(66,72),pick(26,40),0],[1.1,rx,ry,0],[2.45,sx,sy,0,lin],[shotT,L+.4,tgt,near?.9:1.3,out,null,near?0:(sy<34?-1:1)*2.6]];
+        if(A)add(S,A,[[0,pick(65,71),pick(26,40)],[1.1,pick(70,74),33],[2.4,82,33]],"ast");add(S,g.n,[[0,rx-5,ry],[1.1,rx,ry],[2.45,sx,sy],[3.4,sx+1.5,sy]],"key");
+        def([[0,rx+4,ry+(side<0?4:-4)],[1.1,rx+3,ry+(side<0?2:-2)],[2.3,sx-1,sy+(side<0?1.6:-1.6)],[3,sx,sy+(side<0?1.4:-1.4)]]);defs(2);
+        add(O,gkO,[[0,103.5,34],[2.4,103.8,near?(side<0?31.8:36.2):34],[shotT+.05,103.9,tgt+(tgt<34?2:-2)]],"gk");style+="!"}
+      else if(style==="long"||style==="edge"||style==="rocket"){const far=style==="rocket"?pick(73,77):style==="long"?pick(80,84):pick(86,88.5),sy=pick(25,43);shotT=style==="rocket"?2.25:2.55;
+        const tgt=r()<.5?pick(30.8,31.8):pick(36.2,37.2);
+        ball=[[0,pick(60,66),wy(pick(14,22)),0],[1.2,far,sy,0],[style==="rocket"?1.25:1.7,far+(style==="rocket"?0:.9),sy,0,lin],[shotT,L+.4,tgt,style==="edge"?.9:1.9,lin,style==="edge"?.6:1.2,(r()-.5)*1.2]];
+        if(A)add(S,A,[[0,pick(59,65),wy(18)],[1.2,pick(64,68),wy(20)],[2.5,70,wy(22)]],"ast");add(S,g.n,[[0,far-6,sy+(r()-.5)*6],[1.2,far,sy],[1.7,far+.9,sy],[2.8,far+2.5,sy]],"key");
+        def([[0,far+6,sy+2],[1.5,far+3.5,sy+1],[2.2,far+2.5,sy+.6]]);defs(3);add(S,null,[[0,86,34+(r()-.5)*14],[2.5,93,34+(r()-.5)*12]]);
+        add(O,gkO,[[0,103.6,34],[shotT-.4,103.6,(34+tgt)/2],[shotT+.05,103.8,tgt+(tgt<34?1.6:-1.6)]],"gk");style+="!"}
+      else if(style==="onetwo"){const ax=pick(88,91),ay=pick(30,38),sx=pick(80,84),sy=ay+(r()<.5?-7:7),fx=pick(96,99),fy=ay+(sy<ay?-3:3);shotT=3.5;
+        ball=[[0,sx,sy,0],[.9,ax,ay,0],[2.0,fx,fy,0,lin],[2.15,fx,fy,0],[shotT,L+.4,ty,.2,out]];ball.splice(3,1);
+        add(S,A,[[0,ax+1,ay],[.9,ax,ay],[2.3,ax+1,ay]],"ast");add(S,g.n,[[0,sx-1,sy],[.9,sx+3,sy],[2.0,fx,fy],[3.6,fx+1.5,fy]],"key");def([[0,ax+1.5,ay+.5],[1,ax+1.3,ay+.4],[2,ax+1.5,ay]]);def([[0,sx+6,sy],[2,fx-3,fy+(sy<ay?1.5:-1.5)]]);defs(1)}
+      else if(style==="overlap"){const sx=pick(97,100),sy=wy(pick(17,22));shotT=3.6;
+        ball=[[0,pick(70,74),pick(24,32),0],[1.0,pick(80,84),wy(pick(17,22)),0],[2.0,pick(91,93),wy(pick(5,8)),0,ease],[2.9,sx,sy,0,lin],[shotT,L+.4,ty,.5,out]];
+        if(A)add(S,A,[[0,pick(76,80),wy(20)],[1,pick(80,84),wy(19)],[2.4,88,wy(20)]],"ast");add(S,g.n,[[0,74,wy(5)],[1,82,wy(5.5)],[2,91.5,wy(6.5)],[2.9,sx,sy],[3.9,sx+1.2,sy]],"key");
+        def([[0,86,wy(10)],[2,92,wy(9)],[2.9,sx-1.2,sy+(side<0?-1.4:1.4)]]);defs(2)}
+      else if(style==="scramble"){const fx=pick(90,93),fy=pick(28,40),bx=pick(94,96),by=fy+(r()-.5)*2,sx=pick(98,100),sy=pick(31,37);shotT=3.0;const m2=mate();
+        ball=[[0,pick(84,88),wy(pick(8,12)),0],[1.0,fx,fy,0,ease,1.8],[1.5,bx,by,0,lin],[2.3,sx,sy,0,ease,.8],[shotT,L+.4,ty,.15,out]];
+        add(S,m2,[[0,fx-4,fy],[1,fx,fy],[2,fx+1,fy]],"run");add(S,g.n,[[0,94,sy+3],[1.6,97,sy+1],[2.3,sx,sy],[3.2,sx+1,sy]],"key");def([[0,bx+1,by],[1.5,bx+.4,by]]);def([[0,98,sy-2],[2.3,sx-.6,sy-1.2]]);defs(2)}
+      else{ // percée solitaire
+        shotT=3.3;const s0=[pick(56,62),pick(20,48)],d0=[pick(66,72),pick(20,48)],d1=[pick(84,88),pick(24,44)];
+        ball=[[0,...s0,0],[.9,...d0,0],[2.4,...d1,0,lin],[shotT,L+.4,ty,.8,out]];
+        add(S,g.n,[[0,d0[0]-8,d0[1]+3],[.9,d0[0],d0[1]],[2.4,d1[0],d1[1]],[3.5,d1[0]+3,d1[1]]],"key");runM(.9,s0[0],s0[1]);
+        def([[0,d0[0]+8,d0[1]-2],[1.5,(d0[0]+d1[0])/2+1,(d0[1]+d1[1])/2+1.5],[2.2,d1[0]-1,d1[1]+2],[3,d1[0]-2,d1[1]+3]]);def([[0,d1[0]+6,d1[1]-4],[2.3,d1[0]+2,d1[1]-1.5],[3.2,d1[0]+1,d1[1]-1]])}
+      if(!/!$/.test(style))add(O,gkO,[[0,103.5,34],[shotT-.6,103.3,(34+ty)/2],[shotT+.05,103.9,ty+(ty<34?2:-2)]],"gk");style=style.replace("!","")}
     // miroir pour l'équipe qui attaque vers la gauche
-    const mir=S==="a",tf=p=>mir?[p[0],L-p[1],H-p[2],p[3],p[4],p[5]]:p;
+    const mir=S==="a",tf=p=>mir?[p[0],L-p[1],H-p[2],p[3],p[4],p[5],p[6]]:p;
     ball=ball.map(tf);P.forEach(p=>p.tr=p.tr.map(tf));
-    return {ball,P,shotT,kind,end:shotT+2.6,mir}}
+    return {ball,P,shotT,kind,style,end:shotT+2.6,mir}}
 
   // ---- Son (synthétisé, aucun fichier) : sifflet, frappes, filet, public. Coupé par défaut.
   let AC=null,bus=null,NB=null;const sndOn=()=>{try{return localStorage.getItem("compo-fc-sound")==="1"}catch(e){return false}};
@@ -4498,6 +4535,7 @@ html[data-theme="light"]{background:radial-gradient(1200px 520px at 50% -180px,r
     const B=sc.ball;for(let i=1;i<B.length;i++){const a=B[i-1],b=B[i];if(Math.hypot(b[1]-a[1],b[2]-a[2])>.5&&b[0]-a[0]>.05){const shot=i===B.length-1;kick(T+a[0],shot?1:.45)}}
     const s=T+sc.shotT;noise(s,.35,"highpass",2400,.5,.28,.01,.25);          // filet
     noise(s+.05,3,"bandpass",900,.5,.32,.35,1.6,1300);noise(s+.05,3,"lowpass",500,.4,.25,.5,1.6)} // clameur
+
   let ov=null,raf=0;
   window.playGoals=function(m,start,all){
     const goals=(m.goals||[]).map((g,i)=>({g,i})).sort((a,b)=>a.g.m-b.g.m||(a.g.st||"").localeCompare(b.g.st||""));if(!goals.length)return;
@@ -4520,7 +4558,8 @@ html[data-theme="light"]{background:radial-gradient(1200px 520px at 50% -180px,r
     function go(p){if(p<0||p>=goals.length)return;pos=p;const {g,i}=goals[p];sc=scenario(m,g,i);t0=performance.now();
       cnt.textContent=`But ${p+1}/${goals.length}`;pv.disabled=p===0;nx.disabled=p===goals.length-1;
       let hs=0,as=0;goals.slice(0,p+1).forEach(x=>x.g.side==="h"?hs++:as++);
-      const typ=g.pen?" sur penalty":g.og?" contre son camp":g.fk?" sur coup franc direct":g.ck?" de la tête sur corner":"";
+      const ST={tapin:" à bout portant",header:" de la tête",oneone:" en un contre un",chip:" d'un piqué",round:" en dribblant le gardien",turn:" d'un pivot dans la surface",curl:" d'une frappe enroulée",nearpost:" au premier poteau",long:" d'une frappe de loin",edge:" à l'entrée de la surface",rocket:" d'une frappe de mule",onetwo:" après un une-deux",overlap:" après un appel dans le dos",scramble:" dans un cafouillage",solo:" après un rush solitaire"};
+      const typ=g.pen?" sur penalty":g.og?" contre son camp":g.fk?" sur coup franc direct":g.ck?" de la tête sur corner":(ST[sc.style]||"");
       cap.innerHTML="";const b1=el("div","gv-c1");b1.append(el("b",null,`${g.m}'${g.st||""}`),document.createTextNode(` ${g.n}${typ}`));
       const b2=el("div","gv-c2",`${g.a&&!g.og?(g.ck?"Corner de ":"Passe de ")+g.a+" · ":""}${nm(m.hId)} ${hs}-${as} ${nm(m.aId)}`);cap.append(b1,b2);cap.classList.remove("on");
       cancelAnimationFrame(raf);if(reduce){stopSnd();draw(sc.shotT+1.2);cap.classList.add("on")}else{soundFor(sc);t0=performance.now()+50;raf=requestAnimationFrame(loop)}}
