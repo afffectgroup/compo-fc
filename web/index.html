@@ -500,6 +500,13 @@ body.view-ai .team-name{pointer-events:none}
 .rv-ko{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);animation:rvTick .45s ease infinite alternate;display:inline-block;white-space:nowrap}
 .rv-clock{min-width:44px}
 .rv-g small{color:var(--muted);font-size:12px;margin:0 4px}
+.card.hdj{background:linear-gradient(160deg,#2a2a2a 0%,#111 55%,#1d1d1d 100%)!important;color:#f0d27a!important;box-shadow:0 0 0 2px #c9a34a inset,0 4px 10px rgba(0,0,0,.45)!important}
+.card.hdj::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(135deg,rgba(201,163,74,.10) 0 2px,transparent 2px 9px);pointer-events:none}
+.card.hdj .pc{color:#c9b27a!important}
+.card .ribbon{position:absolute;left:50%;top:0;transform:translateX(-50%);background:linear-gradient(90deg,#b8892d,#f3d67a,#b8892d);color:#111;font:800 clamp(6px,1.5vw,9px)/1 var(--display);letter-spacing:.06em;padding:2px 5px 3px;border-radius:0 0 6px 6px;white-space:nowrap;z-index:3}
+.rv-hdj{display:flex;align-items:center;justify-content:center;gap:6px;margin:8px auto 0;font-size:13px;color:var(--muted)}
+.rv-hdj b{color:var(--fg)}.rv-hdj i{font-style:normal;font:800 10px/1 var(--display);letter-spacing:.06em;padding:3px 6px;border-radius:5px;background:linear-gradient(90deg,#b8892d,#f3d67a,#b8892d);color:#111}
+.rv-hdj.mine{color:var(--fg)}.rv-hdj.mine b{color:#d9b54a}
 </style>
 
 <div class="appbar">
@@ -3130,6 +3137,8 @@ function cardFor(p,role){
     if(Math.abs(md.v)>=.5){const mi=el("span","mood "+(md.v>0?"hi":"lo"));mi.innerHTML=md.v>0?'<svg viewBox="0 0 24 24"><path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-7 0 2 1 3 2 3 0-3-1-5 1-8z"/></svg>':'<svg viewBox="0 0 24 24"><path d="M7 16a5 5 0 1 1 1-9.9A6 6 0 0 1 19 9a4 4 0 0 1-1 7z"/><path d="M9 19l-1 2M13 19l-1 2M17 19l-1 2" stroke-width="2"/></svg>';c.append(mi)}
     c.title=`${p.name} — condition ${cnd} %${fm?` · forme ${fm.avg.toFixed(1)} sur les derniers matchs`:""}${md.why.length?" · "+(md.v>=0?"moral : ":"moral en baisse : ")+md.why.join(", "):""}`}
   if(p.base!=null&&p.ovr!==p.base){const pg=el("span","pg "+(p.ovr>p.base?"up":"down"),(p.ovr>p.base?"+":"")+(p.ovr-p.base));meta.append(pg)}
+  {const hj=typeof hdjPending==="function"&&league&&league.results?hdjPending(p.name):null;if(hj){c.classList.add("hdj");c.append(el("div","ribbon","HDJ +1"));
+    c.title=(c.title||p.name)+` · Homme de la journée (J${hj.k+1}, note ${hj.r.toFixed(1)}) : +1 au prochain match`}}
   if(st){c.classList.add("out");const b=el("div","stb "+st.type);b.append(el("i",st.type==="inj"?"ic-inj":"ic-red"),document.createTextNode(st.left+"J"));b.title=`${st.why} · ${st.left} journée${st.left>1?"s":""}`;c.append(b);c.title=`${p.name} — ${st.why}, absent ${st.left} journée${st.left>1?"s":""}`}
   else if(k>=0&&yellowThreat(p.name,k)){const b=el("div","stb warn");b.append(el("i","ic-yel"));b.title="Suspendu au prochain carton jaune";c.append(b)}
   return c;
@@ -3638,7 +3647,17 @@ function absences(){const out={},yc={},yw={},cyc={};if(!league||!league.results)
 // Menacé de suspension : à un jaune du seuil (4 en championnat)
 function yellowThreat(n,k){if(!ABS||!ABS.yw||k==null||k<0)return false;return (ABS.yw[n]||0)===YC_LIMIT-1}
 function nextRoundIdx(){if(!league||!league.schedule)return -1;return league.schedule.findIndex((_,k)=>!league.results[k])}
-let ABS=null;function refreshAbs(){if(league&&league.schedule)buildDerived();ABS=absences()}
+let ABS=null,HDJ=[];function refreshAbs(){if(league&&league.schedule)buildDerived();ABS=absences();try{HDJ=hdjList()}catch(e){HDJ=[]}}
+// Homme de la journée : meilleure note de la journée de championnat → +1 pour le prochain match de son équipe
+function hdjOf(k){const ms=league.results[k];if(!ms)return null;let best=null;
+  ms.forEach(m=>["h","a"].forEach(s=>Object.entries((m.ratings&&m.ratings[s])||{}).forEach(([n,rt])=>{const g=(m.goals||[]).filter(x=>x.n===n&&x.side===s&&!x.og).length,sc=rt*100+g*2+(m.motm===n?1:0);
+    if(!best||sc>best.sc||(sc===best.sc&&n<best.n))best={n,r:rt,team:s==="h"?m.hId:m.aId,k,sc}})));return best}
+function teamNext(id,after){let best=null;
+  league.schedule.forEach((f,k)=>{const x=roundDate(k).getTime();if(x>after&&(!best||x<best.t)&&f.some(([h,a])=>h===id||a===id))best={t:x,kind:"L",i:k}});
+  if(league.cup)league.cup.rounds.forEach((R,i)=>{const x=cupDate(R.day).getTime();if(x<=after||(best&&x>=best.t))return;if(league.cup.results[i-1]||i===0)try{ensureCupTies(i)}catch(e){}
+    const ties=R.ties||(league.cup.results[i]||[]).map(m=>[m.hId,m.aId]);if((ties||[]).some(([h,a])=>h===id||a===id))best={t:x,kind:"C",i}});return best}
+function hdjList(){const out=[];Object.keys(league.results||{}).forEach(k=>{const x=hdjOf(+k);if(!x)return;const nx=teamNext(x.team,roundDate(+k).getTime());if(nx)out.push({...x,target:nx})});return out}
+function hdjPending(n){return HDJ.find(x=>x.n===n&&x.target&&!(x.target.kind==="L"?league.results[x.target.i]:league.cup&&league.cup.results[x.target.i]))||null}
 function statusOf(n,k){if(!ABS||k==null||k<0)return null;const l=ABS.out[n];if(!l)return null;const e=l.find(x=>x.from<=k&&k<=x.to);return e?{type:e.type,why:e.why,left:e.to-k+1}:null}
 function adjTeam(T,k){const isOut=n=>n&&statusOf(n,k);const C={...T,xi:[...(T.xi||[])],bench:(T.bench||[]).filter(n=>n&&BY[n]&&!isOut(n))};
   const f=FORMATIONS[C.formation]||FORMATIONS["4-3-3"];
@@ -3790,7 +3809,8 @@ function formOf(n,day){const H=(DER.hist[n]||[]).filter(x=>x.d<day&&x.mins>=20).
   return{avg,bonus:Math.max(-2,Math.min(2,(avg-6.4)*1.5))}}
 function setMods(day){MOD={};INJW={};const teams=[...league.mine.map(m=>lgTeam(m.id)),...league.ai];
   teams.forEach(T=>[...(T.xi||[]),...(T.bench||[]),...(T.res||[])].forEach(n=>{if(!n)return;const c=conditionOf(n,day),f=formOf(n,day),md=moodOf(n,day,T);
-    MOD[n]=Math.max(-3,Math.min(3,(f?f.bonus:0)+md.v-Math.min(2.5,(100-c)/10*.6)));INJW[n]=1+Math.min(.6,(100-c)/50)}))}
+    MOD[n]=Math.max(-3,Math.min(3,(f?f.bonus:0)+md.v-Math.min(2.5,(100-c)/10*.6)));INJW[n]=1+Math.min(.6,(100-c)/50)}));
+  const t=evTime(day);(HDJ||[]).forEach(x=>{if(x.target&&x.target.t===t)MOD[x.n]=(MOD[x.n]||0)+1})}
 function oppInfo(id){try{const T=lgTeam(id),xs=(T&&T.xi||[]).filter(n=>n&&BY[n]).map(n=>BY[n]);
   const note=xs.length>=11?Math.round(xs.reduce((s,p)=>s+p.ovr,0)/xs.length):null;const L=[];
   Object.entries(league.results||{}).forEach(([k,ms])=>ms.forEach(m=>{if(m.hId===id||m.aId===id)L.push({t:roundDate(+k).getTime(),m})}));
@@ -4768,6 +4788,7 @@ html[data-theme="light"]{background:radial-gradient(1200px 520px at 50% -180px,r
         const other=(league.mine||[]).map(x=>x.id).find(x=>x!==id);if(other){const src=E.cup?(league.cup.results[E.key.slice(1)]||[]):(league.results[E.k]||[]);const o=src.find(x=>x.hId===other||x.aId===other);
           if(o&&!(o.hId===id||o.aId===id)){const oh=o.hId===other,om=oh?o.hs:o.as,oo=oh?o.as:o.hs;let r2=om>oo?1:om<oo?-1:0;if(!r2&&o.win)r2=(o.win==="h")===oh?1:-1;
             const pp=el("p","rv-other "+(r2>0?"w":r2<0?"l":"d"));pp.append(el("b",null,nm(other).split(" ")[0]),document.createTextNode(` · ${r2>0?"victoire":r2<0?"défaite":"nul"} ${o.hs}-${o.as} ${oh?"contre":"à"} ${nm(oh?o.aId:o.hId)}`));after.push(pp)}}
+        if(!E.cup&&E.k!=null&&typeof hdjOf==="function"){const hj=hdjOf(E.k);if(hj){const mine=hj.team===id;const hp=el("p","rv-hdj"+(mine?" mine":""));hp.append(el("i",null,"HDJ"),document.createTextNode(" Homme de la journée : "),el("b",null,hj.n),document.createTextNode(` (${hj.r.toFixed(1)}, ${nm(hj.team)})${mine?" · +1 au prochain match":""}`));after.push(hp)}}
         if(m.motm){const mm=el("p","rv-motm");mm.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z"/></svg>';mm.append(document.createTextNode(` Homme du match : ${m.motm}`));after.push(mm)}
         after.forEach((x,i)=>{x.style.animationDelay=(anim?.1+i*.12:0)+"s";x.classList.add("rv-up");card.insertBefore(x,foot)});
         card.classList.remove("flash-me","flash-op");card.classList.add(res>0?"is-win":res<0?"is-loss":"is-draw");
