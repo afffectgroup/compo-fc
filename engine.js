@@ -71,7 +71,13 @@ const REPORT_JS = String.raw`
   function block(title,ms){
     const L=["*<{{APP}}|"+title+">*"];const done=new Set();let n=0;
     league.mine.forEach(mm=>{const m=ms.find(x=>x.hId===mm.id||x.aId===mm.id);if(!m||done.has(m))return;done.add(m);
-      n++;L.push("");L.push("• "+teamLine(m,mm.id))});
+      n++;L.push("");L.push("• "+teamLine(m,mm.id));
+      // Rouges et blessures de nos équipes, sur une ligne en dessous
+      const sides=[m.hId,m.aId].map((id,i)=>[id,i?"a":"h"]).filter(([id])=>mineIds.has(id));
+      sides.forEach(([id,s])=>{const ev=[];
+        (m.cards||[]).filter(c=>c.side===s&&c.t!=="Y").forEach(c=>ev.push("🟥 "+c.n+(c.d?" ("+c.d+" match"+(c.d>1?"s":"")+" de suspension)":"")));
+        (m.inj||[]).filter(x=>x.side===s).forEach(x=>ev.push("🚑 "+x.n+" (blessé "+x.d+" match"+(x.d>1?"s":"")+")"));
+        if(ev.length)L.push("      "+(sides.length>1?first(nm(id))+" : ":"")+ev.join(" · "))})});
     return n?L.join("\n"):"";
   }
   function results(D){
