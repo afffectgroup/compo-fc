@@ -2885,7 +2885,7 @@ function renderTabs(){
   if(viewAI!=null)t.querySelectorAll(".tab").forEach(b=>b.classList.remove("on"));
   const xb=document.getElementById("absBanner");if(xb){xb.replaceChildren();const k=typeof nextDay==="function"?nextDay():-1;
     const inLg=viewAI==null&&k>=0&&league&&league.mine.some(m=>m.id===state.id);
-    if(inLg){const xiOut=state.xi.filter(n=>n&&statusOf(n,k)),bOut=state.bench.filter(n=>n&&statusOf(n,k)),warn=state.xi.filter(n=>n&&!statusOf(n,k)&&ABS&&ABS.yc[n]%3===2),tired=state.xi.filter(n=>n&&!statusOf(n,k)&&conditionOf(n,k)<80);
+    if(inLg){const xiOut=state.xi.filter(n=>n&&statusOf(n,k)),bOut=state.bench.filter(n=>n&&statusOf(n,k)),warn=state.xi.filter(n=>n&&!statusOf(n,k)&&yellowThreat(n,k)),tired=state.xi.filter(n=>n&&!statusOf(n,k)&&conditionOf(n,k)<80);
       if(xiOut.length||bOut.length||warn.length||tired.length){const d=roundDate(k);const when=dstr(d)===dstr(new Date())?"aujourd'hui":"le "+fmtDate(dstr(d));
         const h=el("p","ab-h");h.append(el("b",null,`${dayLabel(k)||"Prochain match"} · ${when} à ${slotHour(k)}h`));xb.append(h);
         const fmt=n=>{const s=statusOf(n,k);return `${shortName(n)} (${s.type==="inj"?"blessé":"suspendu"}, ${s.left} match${s.left>1?"s":""})`};
@@ -3015,7 +3015,7 @@ function cardFor(p,role){
     c.title=`${p.name} — condition ${cnd} %${fm?` · forme ${fm.avg.toFixed(1)} sur les derniers matchs`:""}${md.why.length?" · "+(md.v>=0?"moral : ":"moral en baisse : ")+md.why.join(", "):""}`}
   if(p.base!=null&&p.ovr!==p.base){const pg=el("span","pg "+(p.ovr>p.base?"up":"down"),(p.ovr>p.base?"+":"")+(p.ovr-p.base));meta.append(pg)}
   if(st){c.classList.add("out");const b=el("div","stb "+st.type);b.append(el("i",st.type==="inj"?"ic-inj":"ic-red"),document.createTextNode(st.left+"J"));b.title=`${st.why} · ${st.left} journée${st.left>1?"s":""}`;c.append(b);c.title=`${p.name} — ${st.why}, absent ${st.left} journée${st.left>1?"s":""}`}
-  else if(k>=0&&ABS&&ABS.yc[p.name]%3===2){const b=el("div","stb warn");b.append(el("i","ic-yel"));b.title="Suspendu au prochain carton jaune";c.append(b)}
+  else if(k>=0&&yellowThreat(p.name,k)){const b=el("div","stb warn");b.append(el("i","ic-yel"));b.title="Suspendu au prochain carton jaune";c.append(b)}
   return c;
 }
 let drag=null, dragJustEnded=false;
@@ -3487,13 +3487,17 @@ function simulate(H,A,date,opts){opts=opts||{};
 }
 
 // ---- Absences ----
-function absences(){const out={},yc={};if(!league||!league.results)return{out,yc};
+// Cartons jaunes : 3 jaunes sur une fenêtre de 5 journées de championnat = 1 match de suspension (le compteur repart alors de zéro)
+function absences(){const out={},yc={},yw={};if(!league||!league.results)return{out,yc,yw};
   const add=(n,from,to,type,why)=>{(out[n]||(out[n]=[])).push({from,to,type,why})};
   allByDay().forEach(({d,m,c,ri})=>{
     (m.cards||[]).forEach(cd=>{if(c==="C"){if(cd.t!=="Y"){const nd=league.cup.rounds[ri+1];if(nd)add(cd.n,nd.day,nd.day,"susp","rouge en coupe")}return}
-      if(cd.t==="Y"){yc[cd.n]=(yc[cd.n]||0)+1;if(yc[cd.n]%3===0)add(cd.n,d+1,d+1,"susp","3 cartons jaunes")}else add(cd.n,d+1,d+(cd.d||1),"susp",cd.t==="Y2"?"expulsé (2 jaunes)":"carton rouge")});
+      if(cd.t==="Y"){const w=(yw[cd.n]||[]).filter(x=>x>=d-4);w.push(d);yc[cd.n]=(yc[cd.n]||0)+1;
+        if(w.length>=3){add(cd.n,d+1,d+1,"susp","3 cartons jaunes en 5 matchs");yw[cd.n]=[]}else yw[cd.n]=w}else add(cd.n,d+1,d+(cd.d||1),"susp",cd.t==="Y2"?"expulsé (2 jaunes)":"carton rouge")});
     (m.inj||[]).forEach(i=>add(i.n,d+1,d+i.d,"inj","blessé"))});
-  return{out,yc}}
+  return{out,yc,yw}}
+// Menacé de suspension : déjà 2 jaunes encore actifs dans la fenêtre de 5 journées qui inclut le prochain match
+function yellowThreat(n,k){if(!ABS||!ABS.yw||k==null||k<0)return false;return (ABS.yw[n]||[]).filter(x=>x>=k-4).length===2}
 function nextRoundIdx(){if(!league||!league.schedule)return -1;return league.schedule.findIndex((_,k)=>!league.results[k])}
 let ABS=null;function refreshAbs(){if(league&&league.schedule)buildDerived();ABS=absences()}
 function statusOf(n,k){if(!ABS||k==null||k<0)return null;const l=ABS.out[n];if(!l)return null;const e=l.find(x=>x.from<=k&&k<=x.to);return e?{type:e.type,why:e.why,left:e.to-k+1}:null}
@@ -4050,7 +4054,7 @@ document.getElementById("imgBtn").onclick=async e=>{
 // ---- Couche UI de la version hébergée ----
 (function(){
   // Infobulles maison : on reprend le texte des attributs title et on l'affiche dans le style de l'app
-  if(matchMedia("(hover:hover)").matches){
+  if(window.matchMedia&&matchMedia("(hover:hover)").matches){
     const tip=document.createElement("div");tip.className="tip";tip.setAttribute("role","tooltip");document.body.append(tip);let cur=null,timer=0;
     const show=elx=>{const txt=elx.dataset.tip;if(!txt){return}
       const parts=txt.split(" — ");tip.replaceChildren();

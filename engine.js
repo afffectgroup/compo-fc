@@ -179,7 +179,7 @@ const REPORT_JS = String.raw`
       const out=xi.filter(n=>statusOf(n,k)).map(n=>{const s=statusOf(n,k);return n+" ("+(s.type==="inj"?"blessé":"suspendu")+", "+s.left+" match"+(s.left>1?"s":"")+")"});
       const bout=bench.filter(n=>statusOf(n,k)).map(n=>n);
       const tired=xi.filter(n=>!statusOf(n,k)&&conditionOf(n,k)<80).map(n=>n+" ("+conditionOf(n,k)+" %)");
-      const warn=xi.filter(n=>!statusOf(n,k)&&ABS&&ABS.yc[n]%3===2);
+      const warn=xi.filter(n=>!statusOf(n,k)&&yellowThreat(n,k));
       if(out.length)L.push("   🚫 Titulaires absents : "+out.join(", ")+" → sinon le meilleur remplaçant jouera");
       if(bout.length)L.push("   🪑 Remplaçants indisponibles : "+bout.join(", "));
       if(tired.length)L.push("   🔋 Fatigués : "+tired.join(", "));
