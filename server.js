@@ -134,6 +134,28 @@ async function slack(text) {
   if (!r.ok) throw new Error("Slack " + r.status + " " + (await r.text()));
 }
 
+// ---------- Récaps Slack en attente (pas de spoil) ----------
+const PLAYERS = () => USERS.filter(u => u.name !== "admin").map(u => u.name);
+function queueSlack(item) { if (!store.meta.pendingSlack) store.meta.pendingSlack = []; store.meta.pendingSlack.push({ ...item, at: Date.now(), lg: store.docs.league && store.docs.league.id }); persist(); }
+function seenBy(name, key, lg) { const d = store.docs["seen-" + name]; return !!(d && d.lg === lg && Array.isArray(d.keys) && d.keys.includes(key)); }
+const MAX_WAIT = 12 * 3600e3; // filet de sécurité : le récap part au plus tard 12 h après le match (ou avant le match suivant)
+let flushing = false;
+async function flushSlack(force) {
+  const q = store.meta.pendingSlack; if (!q || !q.length || flushing) return;
+  flushing = true;
+  try {
+    const keep = [];
+    for (let i = 0; i < q.length; i++) {
+      const it = q[i];
+      const ready = force || Date.now() - it.at > MAX_WAIT || (it.key ? PLAYERS().every(n => seenBy(n, it.key, it.lg)) : !keep.some(x => x.key));
+      if (ready && !keep.some(x => x.key)) { try { await slack(it.text); } catch (e) { console.error(e.message); } }
+      else keep.push(it); // garde l'ordre : un récap ne passe pas devant un précédent encore en attente
+    }
+    store.meta.pendingSlack = keep; persist();
+  } finally { flushing = false; }
+}
+setInterval(() => { flushSlack(false).catch(() => {}); }, 60000);
+
 // ---------- Boucle : jouer les journées et poster ----------
 let running = false;
 async function runTick(force) {
@@ -150,11 +172,19 @@ async function runTick(force) {
     const cnt = L => Object.keys(L.results || {}).length + Object.keys((L.cup && L.cup.results) || {}).length;
     if (!after || after.id !== before.id || cnt(after) < cnt(before)) { console.error("tick refusé : le moteur aurait modifié la saison", before.id, after && after.id); return; }
     store.docs.league = after; // tick est synchrone : aucune écriture n'a pu arriver entre-temps
-    store.meta = { ...res.meta, nextAt: res.nextSlotAt };
+    store.meta = { ...res.meta, nextAt: res.nextSlotAt, pendingSlack: store.meta.pendingSlack || [] };
     persist();
+    // Anti-spoil : on annonce la fin du match sans le score, le récap complet part quand vous avez tous les deux vu le résultat dans l'app
+    if (res.msgs.length) await flushSlack(true);
     for (const m of res.msgs) {
-      try { await slack(m.text); } catch (e) { console.error(e.message); }
+      const key = m.kind === "results" ? "L" + m.slot : m.kind === "cup" ? "C" + m.round : null;
+      if (key) {
+        const t = /^\*<\{\{APP\}\}\|([^>]+)>\*/.exec(m.text), title = t ? t[1] : "Match";
+        try { await slack(`*<{{APP}}|${title}>* : c'est terminé ! Découvrez le résultat sur l'app, le récap suivra ici.`); } catch (e) { console.error(e.message); }
+        queueSlack({ key, text: m.text });
+      } else queueSlack({ key: null, text: m.text });
     }
+    await flushSlack(false);
   } catch (e) {
     console.error("tick:", e);
   } finally { running = false; }
@@ -255,6 +285,7 @@ const server = http.createServer(async (req, res) => {
         if (AUTH_ON && u !== "admin" && id !== "seen-" + u) return send(res, 403, { error: "interdit" });
         store.docs[id] = { lg: String((data && data.lg) || ""), keys: Array.isArray(data && data.keys) ? data.keys.filter(k => typeof k === "string" && k.length < 12).slice(-300) : [] };
         persist();
+        flushSlack(false).catch(() => {});
         return send(res, 200, { ok: true });
       }
       if (id === "photos") {
