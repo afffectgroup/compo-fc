@@ -610,6 +610,7 @@ body.view-ai .team-name{pointer-events:none}
         <div id="resWrap"><div class="res-top"><p class="res-h"><b>Réserve</b><span> · 3 joueurs de moins de 20 ans</span></p><button type="button" class="btn small watch-btn" id="watchBtn" aria-expanded="false"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>À surveiller</span><b id="watchN"></b></button></div><div class="bench" id="reserve"></div><div id="watchWrap" hidden><p class="res-h"><b>Joueurs à surveiller</b><span> · pour toi seulement, ils ne jouent pas</span></p><div class="bench watch" id="watch"></div></div></div>
         <div class="setp" id="setp" hidden></div>
       </section>
+      <section class="box pre" id="preMatch" hidden></section>
     </aside>
   </div>
  </div>
@@ -4658,6 +4659,47 @@ select.btn{box-shadow:var(--well)}
 /* fenêtres : niveau 3 */
 .rv-card,.sheet,.gv-sheet{box-shadow:var(--e3)!important}
 .bottomnav{box-shadow:0 -1px 0 var(--line),0 -8px 24px var(--sh)}
+
+/* ===== Passe design : Avant le match, cartes, compétitions, mobile ===== */
+.pre{display:grid;gap:10px;align-self:start}
+@media (min-width:900px){aside{max-height:none!important;overflow:visible!important}}
+.pre-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.pre-h h2{margin:0!important}.pre-h span{font-size:13px;color:var(--muted)}
+.pre-vs{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;padding:12px;border-radius:10px;background:var(--panel-2);box-shadow:var(--well)}
+.pre-vs i{font-style:normal;font-size:12px;color:var(--muted)}
+.pre-side{display:flex;flex-direction:column;gap:2px;min-width:0}.pre-side:last-child{text-align:right}
+.pre-side b{font-family:var(--display);font-weight:800;font-size:18px;line-height:1.05;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pre-side span{font-family:var(--display);font-weight:800;font-size:30px;line-height:1}
+.pre-side.me b,.pre-side.me span{color:var(--accent)}
+.pre-bar{display:flex;height:6px;border-radius:6px;overflow:hidden;gap:2px;margin-top:-4px}
+.pre-bar i{display:block;flex-basis:0}.pre-bar i.me{background:var(--accent)}.pre-bar i.op{background:var(--loss)}
+.pre-row{display:grid;grid-template-columns:minmax(120px,40%) 1fr;gap:10px;align-items:baseline;font-size:14px;padding-top:9px;border-top:1px solid var(--line)}
+.pre-l{color:var(--muted);font-size:13px}
+.pre-row.bad .pre-v{color:var(--loss);font-weight:600}.pre-row.warn .pre-v{color:var(--warn)}.pre-row.good .pre-v{color:#d9b54a;font-weight:600}
+.pre-cond{font-weight:700}.pre-cond.ok{color:var(--accent)}.pre-cond.mid{color:var(--warn)}.pre-cond.low{color:var(--loss)}
+.pre .ofm{margin-right:2px}
+/* cartes : hiérarchie plus nette */
+.card .pn{font-size:clamp(11px,2.5vw,15px)!important;letter-spacing:.01em}
+.card .pc{opacity:.65}
+.card .ovr{letter-spacing:-.01em}
+.cond{height:4px!important;bottom:4.5%!important;background:rgba(0,0,0,.25)!important;box-shadow:inset 0 1px 1px rgba(0,0,0,.25)}
+/* classement : podium marqué */
+.lg-table tbody tr:nth-child(1) td:first-child{color:#d9b54a;font-weight:800}
+.lg-table tbody tr:nth-child(2) td:first-child{color:#a9b4bf;font-weight:800}
+.lg-table tbody tr:nth-child(3) td:first-child{color:#c98a5a;font-weight:800}
+.lg-table td.pts{font-family:var(--display);font-size:18px}
+/* tableau de coupe : vainqueur appuyé, liaisons entre tours */
+.btie{box-shadow:var(--e1);position:relative}
+.btie .bl.w{color:var(--fg)}.btie .bl.w::before{content:"";position:absolute;left:0;width:3px;height:18px;margin-top:1px;background:var(--accent);border-radius:0 2px 2px 0}
+@media (min-width:900px){.bcol:not(:last-child) .btie::after{content:"";position:absolute;right:-15px;top:50%;width:14px;height:2px;background:var(--line)}}
+/* mobile d'abord */
+@media (max-width:640px){
+  .team-name{font-size:28px!important}
+  .pitch{margin-left:-16px!important;margin-right:-16px!important;width:calc(100% + 32px)!important;border-radius:0!important;border-left:0!important;border-right:0!important;max-width:none!important}
+  .nextbar{padding:8px 12px!important;font-size:13px!important;gap:4px 10px!important}
+  .pre-row{grid-template-columns:1fr;gap:2px}
+  .pre-side span{font-size:26px}
+}
 </style>
 <script>
 /* ---- Buts en motion design : ralenti 2D généré à partir des données du but (déterministe) ---- */
@@ -4997,6 +5039,37 @@ select.btn{box-shadow:var(--well)}
   window.rvSeen=()=>new Set([...(get()||[]),...(Array.isArray(srvSeen)?srvSeen:[])]);
   window.compoReveal=(list,id)=>show(list,id,()=>{});window.compoRevealCheck=()=>check();
   const _r=render;render=function(){_r.apply(this,arguments);clearTimeout(window._rvT);window._rvT=setTimeout(()=>{try{check()}catch(e){}},700)};
+})();
+</script>
+<script>
+/* ---- Panneau « Avant le match » : ce qu'il faut savoir avant de valider sa compo ---- */
+(function(){
+  function fixture(id,k){if(league.schedule[k]&&!league.results[k]){const f=league.schedule[k].find(([h,a])=>h===id||a===id);if(f)return{home:f[0]===id,opp:f[0]===id?f[1]:f[0],lab:"J"+(k+1),t:roundDate(k)}}
+    if(league.cup)for(let i=0;i<league.cup.rounds.length;i++){const R=league.cup.rounds[i];if(R.day!==k||league.cup.results[i])continue;try{ensureCupTies(i)}catch(e){}const f=(R.ties||[]).find(([h,a])=>h===id||a===id);if(f)return{home:f[0]===id,opp:f[0]===id?f[1]:f[0],lab:R.name,t:cupDate(k),cup:true}}return null}
+  function row(lab,val,cls){const d=el("div","pre-row"+(cls?" "+cls:""));d.append(el("span","pre-l",lab));const v=el("div","pre-v");if(typeof val==="string")v.textContent=val;else v.append(val);d.append(v);return d}
+  function renderPre(){const box=document.getElementById("preMatch");if(!box)return;box.replaceChildren();
+    try{const inLg=league&&league.mine&&league.mine.some(m=>m.id===state.id);const k=inLg?nextDay():-1;const F=k>=0?fixture(state.id,k):null;if(!F||viewAI!=null){box.hidden=true;return}box.hidden=false;
+      const when=F.t.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})+" à "+F.t.getHours()+"h";
+      const hd=el("div","pre-h");hd.append(el("h2",null,"Avant le match"),el("span",null,`${F.lab}, ${when}`));box.append(hd);
+      // affiche
+      const opp=lgTeam(F.opp),xi=state.xi.filter(n=>n&&BY[n]),oxi=(opp.xi||[]).filter(n=>n&&BY[n]);
+      const mine=xi.length?xi.reduce((a,n)=>a+BY[n].ovr,0)/xi.length:0,theirs=oxi.length>=11?oxi.reduce((a,n)=>a+BY[n].ovr,0)/oxi.length:null;
+      const vs=el("div","pre-vs");const side=(name,val,cls)=>{const s=el("div","pre-side "+cls);s.append(el("b",null,name),el("span",null,val==null?"?":val.toFixed(1)));return s};
+      const meName=state.name||"Mon équipe",oppName=opp.name.replace(/^Équipe /,"");
+      vs.append(side(F.home?meName:oppName,F.home?mine:theirs,F.home?"me":"op"),el("i",null,F.home?"dom.":"ext."),side(F.home?oppName:meName,F.home?theirs:mine,F.home?"op":"me"));box.append(vs);
+      if(theirs!=null){const bar=el("div","pre-bar"),tot=mine+theirs,a=el("i","me"),b=el("i","op");a.style.flexGrow=String(Math.pow(mine,6));b.style.flexGrow=String(Math.pow(theirs,6));if(F.home)bar.append(a,b);else bar.append(b,a);box.append(bar)}
+      const fm=el("span");fm.innerHTML=(oppInfo(F.opp)||"").replace(/<span class="opn"[^<]*<\/span>/,"")||"–";box.append(row("Forme de "+oppName,fm));
+      // mon onze
+      const cond=xi.map(n=>({n,c:conditionOf(n,k)})),avg=cond.length?Math.round(cond.reduce((a,x)=>a+x.c,0)/cond.length):100,tired=cond.filter(x=>x.c<80);
+      const cv=el("span","pre-cond "+(avg>=88?"ok":avg>=80?"mid":"low"));cv.textContent=avg+" %";const cw=el("span");cw.append(cv);if(tired.length)cw.append(document.createTextNode(` · ${tired.length} dans le rouge : ${tired.map(x=>shortName(x.n)).join(", ")}`));
+      box.append(row("Forme physique du onze",cw,tired.length?"warn":""));
+      const out=[...state.xi,...state.bench].filter(n=>n&&BY[n]).map(n=>({n,s:statusOf(n,k)})).filter(x=>x.s);
+      box.append(row("Absents",out.length?out.map(x=>`${shortName(x.n)} (${x.s.type==="inj"?"blessé":"suspendu"})`).join(", "):"aucun",out.some(x=>state.xi.includes(x.n))?"bad":""));
+      const thr=xi.filter(n=>!F.cup&&yellowThreat(n,k));if(thr.length)box.append(row("À un jaune de la suspension",thr.map(shortName).join(", "),"warn"));
+      const hj=xi.filter(n=>typeof hdjPending==="function"&&hdjPending(n));if(hj.length)box.append(row("Homme de la journée",hj.map(n=>shortName(n)+" +1").join(", "),"good"));
+      const miss=SETP.filter(([kk])=>!state.takers||!state.takers[kk]||!state.xi.includes(state.takers[kk])).length;box.append(row("Tireurs",miss?`${miss} à désigner`:"tous désignés",miss?"warn":""));
+    }catch(e){box.hidden=true}}
+  const _r=render;render=function(){_r.apply(this,arguments);renderPre()};
 })();
 </script>
 </body>
