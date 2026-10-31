@@ -430,7 +430,6 @@ body.view-ai .team-name{pointer-events:none}
     <div class="controls">
       <select id="formation" class="btn" aria-label="Formation"></select>
       <select id="tactic" class="btn" aria-label="Tactique"></select>
-      <button class="btn" id="restBtn" type="button" hidden title="Propose le meilleur onze pour le prochain match en tenant compte de la fatigue, de la forme, des blessures et des suspensions"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v4h4"/><path d="M12 7v5l3 2"/></svg><span>Onze reposé</span></button>
       <button class="btn" id="imgBtn" hidden title="Exporter la compo en image"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span class="hide-s">Image</span></button>
       <button class="btn plain danger" id="delTeam">Supprimer</button>
     </div>
@@ -4356,37 +4355,5 @@ html[data-theme="light"]{background:radial-gradient(1200px 520px at 50% -180px,r
 [data-theme="light"] .ai-banner{background:var(--panel-2)}
 [data-theme="light"] .abs-banner.alert{background:#fff4f1}
 </style>
-<script>
-(function(){
-  let undo=null,undoT=null;
-  function sc(n,role,k){const p=BY[n];let s=effOvr(p,role);if(k<0)return s;const c=conditionOf(n,k),f=formOf(n,k),md=moodOf(n,k,state);
-    s+=Math.max(-3,Math.min(3,(f?f.bonus:0)+md.v-Math.min(2.5,(100-c)/10*.6)));return s-Math.max(0,80-c)*.08}
-  function bestXI(){const k=nextDay();refreshAbs();const f=FORMATIONS[state.formation]||FORMATIONS["4-3-3"],roles=f.map(x=>x[0]);
-    const all=[...new Set([...state.xi,...state.bench].filter(n=>n&&BY[n]))],ok=all.filter(n=>!(k>=0&&statusOf(n,k)));
-    const S={};ok.forEach(n=>S[n]=roles.map(r=>sc(n,r,k)));const asg=Array(roles.length).fill(null),used=new Set();
-    for(let t=0;t<roles.length;t++){let b=null;roles.forEach((_,i)=>{if(asg[i])return;ok.forEach(n=>{if(!used.has(n)&&(!b||S[n][i]>b.v))b={i,n,v:S[n][i]}})});if(!b)break;asg[b.i]=b.n;used.add(b.n)}
-    const val=(n,i)=>n?S[n][i]:-99;let better=true,guard=0;
-    while(better&&guard++<50){better=false;
-      for(let i=0;i<asg.length;i++)for(let j=i+1;j<asg.length;j++)if(val(asg[j],i)+val(asg[i],j)>val(asg[i],i)+val(asg[j],j)+1e-9){[asg[i],asg[j]]=[asg[j],asg[i]];better=true}
-      for(let i=0;i<asg.length;i++)ok.forEach(n=>{if(!asg.includes(n)&&val(n,i)>val(asg[i],i)+1e-9){asg[i]=n;better=true}})}
-    const rest=all.filter(n=>!asg.includes(n)),best=n=>Math.max(...roles.map((_,i)=>S[n]?S[n][i]:-99));
-    const avail=rest.filter(n=>S[n]).sort((a,b)=>best(b)-best(a)),gk=avail.find(n=>BY[n].pos.includes("GK"));
-    const bench=[...(gk?[gk]:[]),...avail.filter(n=>n!==gk),...rest.filter(n=>!S[n])];
-    while(bench.length<state.bench.length)bench.push(null);
-    return{xi:asg,bench:bench.slice(0,Math.max(state.bench.length,bench.filter(Boolean).length)),k}}
-  function apply(){if(RO())return;const before={xi:[...state.xi],bench:[...state.bench],captain:state.captain,takers:{...(state.takers||{})}};
-    const B=bestXI();const inn=B.xi.filter(n=>n&&!before.xi.includes(n)),out=before.xi.filter(n=>n&&!B.xi.includes(n));
-    const moved=B.xi.some((n,i)=>n!==before.xi[i]);
-    if(!moved){toast("Ton onze est déjà le meilleur pour ce match",2600);return}
-    state.xi=B.xi;state.bench=B.bench;if(!state.captain||!state.xi.includes(state.captain)){const c=state.xi.filter(Boolean).sort((a,b)=>BY[b].ovr-BY[a].ovr)[0];state.captain=c||null}
-    if(!state.takers)state.takers={};for(const t in state.takers)if(state.takers[t]&&!state.xi.includes(state.takers[t]))state.takers[t]=null;autoTakers();
-    undo=before;save();render();clearTimeout(undoT);undoT=setTimeout(()=>{undo=null;render()},12000);
-    toast(inn.length?`Entrent : ${inn.map(shortName).join(", ")} · Sortent : ${out.map(shortName).join(", ")}`:"Postes réorganisés pour ce match",5000)}
-  function back(){if(!undo||RO())return;Object.assign(state,{xi:undo.xi,bench:undo.bench,captain:undo.captain,takers:undo.takers});undo=null;clearTimeout(undoT);save();render();toast("Compo précédente rétablie")}
-  const rb=document.getElementById("restBtn");rb.onclick=()=>undo?back():apply();
-  const _r=render;render=function(){_r.apply(this,arguments);try{const inLg=league&&league.mine&&league.mine.some(m=>m.id===state.id);
-    rb.hidden=RO()||!inLg||nextDay()<0;rb.querySelector("span").textContent=undo?"Annuler":"Onze reposé";rb.classList.toggle("primary",!!undo)}catch(e){rb.hidden=true}};
-})();
-</script>
 </body>
 </html>
