@@ -69,7 +69,7 @@ const REPORT_JS = String.raw`
     return (derby?"Derby · ":"")+lab+" de "+me+" ("+sc+") contre "+(derby?first(opName):opName);
   }
   // ---- La une : un gros titre façon presse sportive, tiré du fait le plus marquant de nos matchs ----
-  function pickV(arr,seed){let x=0;for(const c of seed)x=(x*31+c.charCodeAt(0))>>>0;return arr[x%arr.length]}
+  function pickV(arr,seed){let x=2166136261;for(const c of seed){x^=c.charCodeAt(0);x=Math.imul(x,16777619)>>>0}x=(x^(x>>>15))>>>0;x=Math.imul(x,2246822507)>>>0;x=(x^(x>>>13))>>>0;return arr[x%arr.length]}
   function headline(ms,key,cupRound){
     const ev=[];
     let stBefore=null,stAfter=null;
@@ -199,7 +199,48 @@ const REPORT_JS = String.raw`
     league.mine.forEach(mm=>{const i=st.findIndex(s=>s.id===mm.id);if(i>=0)L.push(st[i].name+" : "+(i+1)+"e")});
     return L.join("\n");
   }
-  return {results,cupResults,reminder,seasonEnd};
+  // ---- Teaser Slack sans spoil : une question tirée de la situation AVANT le match ----
+  function teaser(ms,key,cupRound,uptoK){
+    const all=league.results,o={};Object.keys(all).forEach(x=>{if(+x<=uptoK)o[x]=all[x]});let st;
+    try{league.results=o;st=standings()}finally{league.results=all}
+    const pos=id=>st.findIndex(s=>s.id===id)+1,row=id=>st.find(s=>s.id===id)||{form:[],pts:0,j:0};
+    const tail=(arr,v)=>{let k=0;for(let i=arr.length-1;i>=0&&arr[i]===v;i--)k++;return k};
+    const Q=[];const q=(p,who,arr,opp)=>Q.push({p,who,opp,t:pickV(arr,league.id+key+who+p)});
+    const ids=league.mine.map(m=>m.id);
+    // Derby : une seule question
+    const dm=ms.find(m=>mineIds.has(m.hId)&&mineIds.has(m.aId));
+    if(dm){const a=first(nm(dm.hId)),b=first(nm(dm.aId));
+      q(200,"*",cupRound?["Derby en coupe : qui de "+a+" ou "+b+" a sorti son frère ?","Un seul Déniel passe : "+a+" ou "+b+" ?"]:["Derby chez les Déniel : qui de "+a+" ou "+b+" a pris le dessus ?","Le derby a rendu son verdict : "+a+" ou "+b+" ?","Qui a gagné le droit de chambrer : "+a+" ou "+b+" ?"])}
+    else ids.forEach(id=>{const m=ms.find(x=>x.hId===id||x.aId===id);if(!m)return;
+      const me=first(nm(id)),oppId=m.hId===id?m.aId:m.hId,opp=nm(oppId),R=row(id),f=R.form,p=pos(id),po=pos(oppId),n=st.length;
+      if(cupRound){const last=cupRound.name==="Finale",nxt={"Barrages":"en quarts","Quarts de finale":"en demies","Demi-finales":"en finale"}[cupRound.name]||"au tour suivant";
+        if(last)q(150,me,[me+" a-t-il soulevé la coupe ?","La coupe est-elle pour "+me+" ?"]);
+        else q(90,me,[me+" a-t-il validé son billet "+nxt+" ?",me+" est-il toujours en vie en coupe ?",me+" a-t-il évité le piège "+opp+" ?"]);return}
+      const w=tail(f,"V"),l=tail(f,"D");let nw=0;for(let i=f.length-1;i>=0&&f[i]!=="V";i--)nw++;
+      if(f.length>=2&&w===f.length)q(110+w,me,[me+" a-t-il réussi le "+(w+1)+" sur "+(w+1)+" ?",me+" est-il toujours invaincu après "+(w+1)+" journées ?"]);
+      else if(w>=2)q(80+w*3,me,[me+" a-t-il enchaîné une "+(w+1)+"e victoire de suite ?","La série de "+me+" a-t-elle tenu face à "+opp+" ?"]);
+      if(l>=2)q(85+l*3,me,[me+" a-t-il enfin stoppé l'hémorragie ?",me+" continue-t-il de sombrer au classement ?",me+" a-t-il touché le fond face à "+opp+" ?",me+" a-t-il enfin relevé la tête ?","La crise continue-t-elle pour "+me+" ?",me+" a-t-il mis fin à sa série noire ("+l+" défaites) ?"]);
+      else if(nw>=3)q(78,me,[me+" a-t-il enfin renoué avec la victoire après "+nw+" matchs sans gagner ?","La disette de "+me+" a-t-elle pris fin ?",me+" a-t-il enfin gagné un match ?",me+" a-t-il retrouvé le chemin de la victoire ?"]);
+      if(R.j>=3&&p===1)q(88,me,[me+" a-t-il conservé son fauteuil de leader ?",me+" est-il toujours en tête ?"]);
+      else if(R.j>=3&&p>1&&st[0].pts-R.pts<=2)q(86,me,[me+" a-t-il pris la tête du championnat ?",me+" s'est-il emparé de la première place ?"]);
+      if(R.j>=3&&po===1)q(76,me,[me+" a-t-il fait tomber le leader "+opp+" ?",me+" a-t-il fait chuter "+opp+", le leader ?"]);
+      if(R.j>=3&&po===n)q(55,me,[me+" a-t-il fait le travail face à la lanterne rouge ?",me+" s'est-il fait piéger par la lanterne rouge ?"]);
+      if(R.j>=3&&p===n)q(70,me,[me+" a-t-il quitté la dernière place ?",me+" est-il toujours lanterne rouge ?"]);
+      q(10,me,[me+" a-t-il pris les trois points face à "+opp+" ?","Victoire, nul ou défaite pour "+me+" face à "+opp+" ?",me+" a-t-il tenu son rang face à "+opp+" ?"],opp)});
+    // Rivalité au classement
+    if(!dm&&!cupRound&&ids.length===2){const [x,y]=ids,px=pos(x),py=pos(y),ax=row(x),ay=row(y);if(ax.j>=2&&Math.abs(ax.pts-ay.pts)<=3&&px!==py){const behind=px>py?x:y,ahead=px>py?y:x;
+      q(72,"*",["Le classement a-t-il changé de mains chez les Déniel ? "+first(nm(behind))+" est-il passé devant "+first(nm(ahead))+" ?",first(nm(behind))+" a-t-il doublé "+first(nm(ahead))+" au classement ?"])}}
+    if(!Q.length)return "";
+    Q.sort((a,b)=>b.p-a.p);const out=[Q[0]];if(Q[0].who!=="*"){const other=Q.find(x=>x.who!==Q[0].who&&x.who!=="*");if(other)out.push(other)}
+    const strip=(x)=>x.t.split(x.who).join("§");
+    if(out.length===2&&strip(out[0])===strip(out[1]))return out[0].t+" Et "+out[1].who+" ?";
+    if(out.length===2&&out[0].p===10&&out[1].p===10)return out[0].t+" Et "+out[1].who+" face à "+out[1].opp+" ?";
+    if(out.length===2&&out[1].p===10)out[1].t="Et "+out[1].who+", face à "+out[1].opp+" ?";
+    return out.map(x=>x.t).join(" ");
+  }
+  function teaserL(D){const ms=league.results[D];if(!ms)return "";const t="*<{{APP}}|Journée "+(D+1)+" à "+slotHour(D)+"h>* : c'est terminé !";let tq="";try{tq=teaser(ms,D,null,D-1)}catch(e){}return t+(tq?"\n_"+tq+"_":"")+"\nRéponse dans l'app."}
+  function teaserC(i){const R=league.cup.rounds[i],ms=league.cup.results[i];if(!ms)return "";const t="*<{{APP}}|"+R.name+" à "+CUP_HOUR+"h>* : c'est terminé !";let tq="";try{tq=teaser(ms,"c"+i,R,R.day)}catch(e){}return t+(tq?"\n_"+tq+"_":"")+"\nRéponse dans l'app."}
+  return {results,cupResults,reminder,seasonEnd,teaserL,teaserC};
 })()`;
 
 function playedSlots(league) {
@@ -220,9 +261,9 @@ function tick(docs, meta, now = new Date()) {
     const msgs = [];
     const sameLeague = !meta.leagueId || meta.leagueId === league.id;
     const posted = new Set(sameLeague ? (meta.posted || []) : []);
-    for (const D of playedSlots(league)) if (!posted.has(D)) { const text = R.results(D); if (text) msgs.push({ kind: "results", slot: D, text }); posted.add(D); }
+    for (const D of playedSlots(league)) if (!posted.has(D)) { const text = R.results(D); if (text) msgs.push({ kind: "results", slot: D, text, teaser: R.teaserL(D) }); posted.add(D); }
     const postedCup = new Set(sameLeague ? (meta.postedCup || []) : []);
-    for (const i of playedCup(league)) if (!postedCup.has(i)) { const text = R.cupResults(i); if (text) msgs.push({ kind: "cup", round: i, text }); postedCup.add(i); }
+    for (const i of playedCup(league)) if (!postedCup.has(i)) { const text = R.cupResults(i); if (text) msgs.push({ kind: "cup", round: i, text, teaser: R.teaserC(i) }); postedCup.add(i); }
     let seasonEndPosted = meta.seasonEnd || null;
     if (w.eval("seasonDone()") && seasonEndPosted !== league.id) { msgs.push({ kind: "season", text: R.seasonEnd() }); seasonEndPosted = league.id; }
     // Pas de rappel séparé : le prochain match et les absents sont ajoutés au dernier message de résultats.

@@ -183,7 +183,7 @@ async function runTick(force) {
       if (key) {
         lastKey = key;
         const t = /^\*<\{\{APP\}\}\|([^>]+)>\*/.exec(m.text), title = t ? t[1] : "Match";
-        try { await slack(`*<{{APP}}|${title}>* : c'est terminé ! Résultat à découvrir sur l'app.`); } catch (e) { console.error(e.message); }
+        try { await slack(m.teaser || `*<{{APP}}|${title}>* : c'est terminé ! Résultat à découvrir sur l'app.`); } catch (e) { console.error(e.message); }
       } else queueSlack({ key: lastKey, text: m.text });
     }
     await flushSlack(false);
