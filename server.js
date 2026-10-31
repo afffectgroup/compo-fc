@@ -174,15 +174,17 @@ async function runTick(force) {
     store.docs.league = after; // tick est synchrone : aucune écriture n'a pu arriver entre-temps
     store.meta = { ...res.meta, nextAt: res.nextSlotAt, pendingSlack: store.meta.pendingSlack || [] };
     persist();
-    // Anti-spoil : on annonce la fin du match sans le score, le récap complet part quand vous avez tous les deux vu le résultat dans l'app
+    // Anti-spoil : Slack annonce seulement la fin du match, le résultat se découvre dans l'app.
+    // Le bilan de fin de saison attend que vous ayez vu le dernier match (ou 12 h).
     if (res.msgs.length) await flushSlack(true);
+    let lastKey = null;
     for (const m of res.msgs) {
       const key = m.kind === "results" ? "L" + m.slot : m.kind === "cup" ? "C" + m.round : null;
       if (key) {
+        lastKey = key;
         const t = /^\*<\{\{APP\}\}\|([^>]+)>\*/.exec(m.text), title = t ? t[1] : "Match";
-        try { await slack(`*<{{APP}}|${title}>* : c'est terminé ! Découvrez le résultat sur l'app, le récap suivra ici.`); } catch (e) { console.error(e.message); }
-        queueSlack({ key, text: m.text });
-      } else queueSlack({ key: null, text: m.text });
+        try { await slack(`*<{{APP}}|${title}>* : c'est terminé ! Résultat à découvrir sur l'app.`); } catch (e) { console.error(e.message); }
+      } else queueSlack({ key: lastKey, text: m.text });
     }
     await flushSlack(false);
   } catch (e) {
