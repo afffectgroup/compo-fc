@@ -144,13 +144,26 @@ const REPORT_JS = String.raw`
         if(ev.length)L.push((sides.length>1?first(nm(id))+" : ":"")+ev.join(" · "))})});
     return n?L.join("\n"):"";
   }
+  // « → Prochain match : J11 à 9h » / « Demi-finales à 21h » : le prochain rendez-vous qui concerne l'un de vous deux
+  function stillInCup(asOf){if(!league.cup)return false;const C=league.cup;
+    return league.mine.some(mm=>C.rounds.every((R,i)=>{const res=C.results[i];if(!res||cupDate(R.day).getTime()>asOf)return true;const m=res.find(x=>x.hId===mm.id||x.aId===mm.id);
+      if(!m)return !(R.ties||[]).length||i===0;return cupWinnerId(m)===mm.id}))}
+  function nextLine(afterTime){
+    const ev=[];
+    league.schedule.forEach((_,k)=>{const t=roundDate(k).getTime();if(t>afterTime)ev.push({t,lab:"J"+(k+1)+" à "+slotHour(k)+"h"})});
+    if(league.cup&&stillInCup(afterTime))league.cup.rounds.forEach((R,i)=>{const t=cupDate(R.day).getTime();if(t>afterTime)ev.push({t,lab:R.name+" à "+CUP_HOUR+"h"})});
+    if(!ev.length)return "";ev.sort((a,b)=>a.t-b.t);
+    return "→ Prochain match : "+ev[0].lab;
+  }
   function results(D){
     const lr=league.results[D];if(!lr)return "";
-    return block("⚽ Journée "+(D+1)+" à "+slotHour(D)+"h",lr,D,null);
+    const txt=block("⚽ Journée "+(D+1)+" à "+slotHour(D)+"h",lr,D,null),nx=nextLine(roundDate(D).getTime());
+    return txt&&nx?txt+"\n\n"+nx:txt;
   }
   function cupResults(i){
     const R=league.cup.rounds[i],res=league.cup.results[i];if(!res)return "";
-    return block("🏆 Coupe · "+R.name+" à "+CUP_HOUR+"h",res,"c"+i,R);
+    const txt=block("🏆 Coupe · "+R.name+" à "+CUP_HOUR+"h",res,"c"+i,R),nx=nextLine(cupDate(R.day).getTime());
+    return txt&&nx?txt+"\n\n"+nx:txt;
   }
   function reminder(k){
     refreshAbs();setMods(k);
