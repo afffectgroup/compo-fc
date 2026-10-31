@@ -162,7 +162,7 @@ const REPORT_JS = String.raw`
   }
   function cupResults(i){
     const R=league.cup.rounds[i],res=league.cup.results[i];if(!res)return "";
-    const txt=block("🏆 Coupe · "+R.name+" à "+CUP_HOUR+"h",res,"c"+i,R),nx=nextLine(cupDate(R.day).getTime());
+    const txt=block(R.name+" à "+CUP_HOUR+"h",res,"c"+i,R),nx=nextLine(cupDate(R.day).getTime());
     return txt&&nx?txt+"\n\n"+nx:txt;
   }
   function reminder(k){
