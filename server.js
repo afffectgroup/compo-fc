@@ -48,6 +48,12 @@ function loadStore() {
   return store;
 }
 let store = loadStore();
+if (!store.docs) store.docs = {};
+if (!store.meta) { // fichier sans métadonnées : ne pas re-poster sur Slack les journées déjà jouées
+  store.meta = { createdAt: new Date().toISOString() };
+  const L0 = store.docs.league;
+  if (L0) { store.meta.leagueId = L0.id; store.meta.posted = playedSlots(L0); store.meta.postedCup = playedCup(L0); }
+}
 const BOOTED = new Date().toISOString();
 backup(); // une sauvegarde à chaque démarrage
 if (!PERSISTENT) console.warn("⚠️  Aucun volume Railway détecté : les données seront perdues au prochain déploiement. Attache un volume sur /data.");
