@@ -200,45 +200,84 @@ const REPORT_JS = String.raw`
     return L.join("\n");
   }
   // ---- Teaser Slack sans spoil : une question tirée de la situation AVANT le match ----
-  function teaser(ms,key,cupRound,uptoK){
+  function teaser(ms,key,cupRound,uptoK,avoid){
+    avoid=avoid||new Set();
     const all=league.results,o={};Object.keys(all).forEach(x=>{if(+x<=uptoK)o[x]=all[x]});let st;
     try{league.results=o;st=standings()}finally{league.results=all}
+    const D=cupRound?cupRound.day:key;try{refreshAbs()}catch(e){}
     const pos=id=>st.findIndex(s=>s.id===id)+1,row=id=>st.find(s=>s.id===id)||{form:[],pts:0,j:0};
     const tail=(arr,v)=>{let k=0;for(let i=arr.length-1;i>=0&&arr[i]===v;i--)k++;return k};
-    const Q=[];const q=(p,who,arr,opp)=>Q.push({p,who,opp,t:pickV(arr,league.id+key+who+p)});
-    const ids=league.mine.map(m=>m.id);
-    // Derby : une seule question
+    const xiOf=id=>{const T=lgTeam(id);return ((T&&T.xi)||[]).filter(n=>n&&BY[n])};
+    const ovrOf=id=>{const X=xiOf(id);return X.length?X.reduce((a,n)=>a+BY[n].ovr,0)/X.length:0};
+    const past=id=>Object.keys(o).sort((x,y)=>x-y).map(k=>(o[k]||[]).find(m=>m.hId===id||m.aId===id)).filter(Boolean);
+    const resOf=(m,id)=>{const h=m.hId===id,a=h?m.hs:m.as,b=h?m.as:m.hs;return a>b?1:a<b?-1:0};
+    const Q=[];const q=(p,who,arr,opp)=>{const ok=arr.filter(t=>!avoid.has(t));const A=ok.length?ok:arr;Q.push({p,who,opp,t:pickV(A,league.id+key+who+p)})};
+    const ids=league.mine.map(m=>m.id),nL=league.schedule.length,BK=typeof breakK==="function"?breakK():-1;
     const dm=ms.find(m=>mineIds.has(m.hId)&&mineIds.has(m.aId));
-    if(dm){const a=first(nm(dm.hId)),b=first(nm(dm.aId));
-      q(200,"*",cupRound?["Derby en coupe : qui de "+a+" ou "+b+" a sorti son frère ?","Un seul Déniel passe : "+a+" ou "+b+" ?"]:["Derby chez les Déniel : qui de "+a+" ou "+b+" a pris le dessus ?","Le derby a rendu son verdict : "+a+" ou "+b+" ?","Qui a gagné le droit de chambrer : "+a+" ou "+b+" ?"])}
+    if(dm){const a=first(nm(dm.hId)),b=first(nm(dm.aId)),ra=row(dm.hId),rb=row(dm.aId);
+      const L=cupRound?["Derby en coupe : qui de "+a+" ou "+b+" a sorti son frère ?","Un seul Déniel passe : "+a+" ou "+b+" ?","Qui a éliminé l'autre en coupe, "+a+" ou "+b+" ?","Le derby de coupe a parlé : "+a+" ou "+b+" ?"]
+        :["Derby chez les Déniel : qui de "+a+" ou "+b+" a pris le dessus ?","Le derby a rendu son verdict : "+a+" ou "+b+" ?","Qui a gagné le droit de chambrer : "+a+" ou "+b+" ?","Qui sera insupportable au prochain repas de famille, "+a+" ou "+b+" ?","Duel fratricide : "+a+" ou "+b+" ?","Qui a la suprématie familiale ce soir, "+a+" ou "+b+" ?","Le derby a-t-il tourné à l'humiliation pour l'un des deux frères ?"];
+      if(!cupRound&&ra.j>=2&&Math.abs(ra.pts-rb.pts)<=3)L.push("Derby au sommet de la rivalité ("+ra.pts+" pts contre "+rb.pts+") : qui est passé devant ?");
+      q(200,"*",L)}
     else ids.forEach(id=>{const m=ms.find(x=>x.hId===id||x.aId===id);if(!m)return;
-      const me=first(nm(id)),oppId=m.hId===id?m.aId:m.hId,opp=nm(oppId),R=row(id),f=R.form,p=pos(id),po=pos(oppId),n=st.length;
+      const me=first(nm(id)),home=m.hId===id,oppId=home?m.aId:m.hId,opp=nm(oppId),R=row(id),RO=row(oppId),f=R.form,p=pos(id),po=pos(oppId),n=st.length,j=R.j;
+      const gap=ovrOf(oppId)-ovrOf(id);
       if(cupRound){const last=cupRound.name==="Finale",nxt={"Barrages":"en quarts","Quarts de finale":"en demies","Demi-finales":"en finale"}[cupRound.name]||"au tour suivant";
-        if(last)q(150,me,[me+" a-t-il soulevé la coupe ?","La coupe est-elle pour "+me+" ?"]);
-        else q(90,me,[me+" a-t-il validé son billet "+nxt+" ?",me+" est-il toujours en vie en coupe ?",me+" a-t-il évité le piège "+opp+" ?"]);return}
-      const w=tail(f,"V"),l=tail(f,"D");let nw=0;for(let i=f.length-1;i>=0&&f[i]!=="V";i--)nw++;
-      if(f.length>=2&&w===f.length)q(110+w,me,[me+" a-t-il réussi le "+(w+1)+" sur "+(w+1)+" ?",me+" est-il toujours invaincu après "+(w+1)+" journées ?"]);
-      else if(w>=2)q(80+w*3,me,[me+" a-t-il enchaîné une "+(w+1)+"e victoire de suite ?","La série de "+me+" a-t-elle tenu face à "+opp+" ?"]);
-      if(l>=2)q(85+l*3,me,[me+" a-t-il enfin stoppé l'hémorragie ?",me+" continue-t-il de sombrer au classement ?",me+" a-t-il touché le fond face à "+opp+" ?",me+" a-t-il enfin relevé la tête ?","La crise continue-t-elle pour "+me+" ?",me+" a-t-il mis fin à sa série noire ("+l+" défaites) ?"]);
-      else if(nw>=3)q(78,me,[me+" a-t-il enfin renoué avec la victoire après "+nw+" matchs sans gagner ?","La disette de "+me+" a-t-elle pris fin ?",me+" a-t-il enfin gagné un match ?",me+" a-t-il retrouvé le chemin de la victoire ?"]);
-      if(R.j>=3&&p===1)q(88,me,[me+" a-t-il conservé son fauteuil de leader ?",me+" est-il toujours en tête ?"]);
-      else if(R.j>=3&&p>1&&st[0].pts-R.pts<=2)q(86,me,[me+" a-t-il pris la tête du championnat ?",me+" s'est-il emparé de la première place ?"]);
-      if(R.j>=3&&po===1)q(76,me,[me+" a-t-il fait tomber le leader "+opp+" ?",me+" a-t-il fait chuter "+opp+", le leader ?"]);
-      if(R.j>=3&&po===n)q(55,me,[me+" a-t-il fait le travail face à la lanterne rouge ?",me+" s'est-il fait piéger par la lanterne rouge ?"]);
-      if(R.j>=3&&p===n)q(70,me,[me+" a-t-il quitté la dernière place ?",me+" est-il toujours lanterne rouge ?"]);
-      q(10,me,[me+" a-t-il pris les trois points face à "+opp+" ?","Victoire, nul ou défaite pour "+me+" face à "+opp+" ?",me+" a-t-il tenu son rang face à "+opp+" ?"],opp)});
-    // Rivalité au classement
-    if(!dm&&!cupRound&&ids.length===2){const [x,y]=ids,px=pos(x),py=pos(y),ax=row(x),ay=row(y);if(ax.j>=2&&Math.abs(ax.pts-ay.pts)<=3&&px!==py){const behind=px>py?x:y,ahead=px>py?y:x;
-      q(72,"*",["Le classement a-t-il changé de mains chez les Déniel ? "+first(nm(behind))+" est-il passé devant "+first(nm(ahead))+" ?",first(nm(behind))+" a-t-il doublé "+first(nm(ahead))+" au classement ?"])}}
+        if(last)q(150,me,[me+" a-t-il soulevé la coupe ?","La coupe est-elle pour "+me+" ?",me+" a-t-il gravé son nom sur le trophée ?","Finale : "+me+" a-t-il tenu ses nerfs ?",me+" est-il le nouveau roi de la coupe ?"]);
+        else q(90,me,[me+" a-t-il validé son billet "+nxt+" ?",me+" est-il toujours en vie en coupe ?",me+" a-t-il évité le piège "+opp+" ?","L'aventure en coupe continue-t-elle pour "+me+" ?",me+" s'est-il fait sortir par "+opp+" ?",me+" a-t-il eu besoin des tirs au but ?",me+" rêve-t-il encore de la coupe ?"]);
+        if(gap>=2)q(95,me,["Exploit en vue : "+me+" a-t-il sorti "+opp+", plus fort sur le papier ?",me+" a-t-il renversé la hiérarchie face à "+opp+" ?"]);
+        return}
+      const w=tail(f,"V"),l=tail(f,"D");let nw=0;for(let i=f.length-1;i>=0&&f[i]!=="V";i--)nw++;let nl=0;for(let i=f.length-1;i>=0&&f[i]!=="D";i--)nl++;
+      // moments de la saison
+      if(j===0)q(120,me,["Premier match de la saison : "+me+" a-t-il bien démarré ?",me+" a-t-il réussi son entrée en matière ?","Les grands débuts de "+me+" : réussis ?"]);
+      if(key===BK)q(115,me,["Retour de trêve : "+me+" a-t-il repris du bon pied ?",me+" a-t-il bien digéré la trêve ?","Les batteries rechargées, "+me+" a-t-il cartonné ?"]);
+      if(key===nL-1)q(130,me,["Dernière journée : "+me+" a-t-il fini en beauté ?",me+" a-t-il terminé la saison sur une bonne note ?","Ultime match pour "+me+" : la der' de rêve ?"]);
+      else if(j>=nL-5&&p<=3)q(100,me,[me+" est-il toujours dans la course au titre ?","Sprint final : "+me+" tient-il le rythme du podium ?",me+" a-t-il gardé le titre en ligne de mire ?"]);
+      // séries
+      if(f.length>=2&&w===f.length)q(110+w,me,[me+" a-t-il réussi le "+(w+1)+" sur "+(w+1)+" ?",me+" est-il toujours parfait après "+(w+1)+" journées ?","Le sans-faute de "+me+" a-t-il tenu ?","Quelqu'un a-t-il enfin battu "+me+" ?"]);
+      else if(w>=2)q(80+w*3,me,[me+" a-t-il enchaîné une "+(w+1)+"e victoire de suite ?","La série de "+me+" a-t-elle tenu face à "+opp+" ?",me+" est-il toujours sur sa lancée ?",opp+" a-t-il freiné "+me+" ?",me+" est-il inarrêtable ("+w+" victoires de suite) ?"]);
+      else if(nl>=4)q(74,me,[me+" est-il toujours invaincu ("+nl+" matchs sans défaite) ?","L'invincibilité de "+me+" a-t-elle pris fin ?",me+" a-t-il prolongé sa série sans défaite ?"]);
+      if(l>=2)q(85+l*3,me,[me+" a-t-il enfin stoppé l'hémorragie ?",me+" continue-t-il de sombrer au classement ?",me+" a-t-il touché le fond face à "+opp+" ?",me+" a-t-il enfin relevé la tête ?","La crise continue-t-elle pour "+me+" ?",me+" a-t-il mis fin à sa série noire ("+l+" défaites) ?","Faut-il s'inquiéter pour "+me+" ?",me+" a-t-il trouvé la sortie du tunnel ?"]);
+      else if(nw>=3)q(78,me,[me+" a-t-il enfin renoué avec la victoire après "+nw+" matchs sans gagner ?","La disette de "+me+" a-t-elle pris fin ?",me+" a-t-il enfin gagné un match ?",me+" a-t-il retrouvé le chemin de la victoire ?","Le déclic est-il enfin venu pour "+me+" ?"]);
+      // classement
+      if(j>=3&&p===1)q(88,me,[me+" a-t-il conservé son fauteuil de leader ?",me+" est-il toujours en tête ?","Le leader "+me+" a-t-il tremblé ?",me+" a-t-il creusé l'écart en tête ?"]);
+      else if(j>=3&&p>1&&st[0].pts-R.pts<=2)q(86,me,[me+" a-t-il pris la tête du championnat ?",me+" s'est-il emparé de la première place ?",me+" est-il le nouveau leader ?","Le fauteuil de leader a-t-il changé de propriétaire au profit de "+me+" ?"]);
+      if(j>=3&&p===n)q(70,me,[me+" a-t-il quitté la dernière place ?",me+" est-il toujours lanterne rouge ?",me+" a-t-il laissé la lanterne rouge à un autre ?"]);
+      else if(j>=3&&p>=n-2&&!(l>=2))q(60,me,[me+" s'est-il donné de l'air au classement ?",me+" a-t-il évité de plonger vers le fond ?"]);
+      // adversaire
+      if(j>=3&&po===1)q(76,me,[me+" a-t-il fait tomber le leader "+opp+" ?",me+" a-t-il fait chuter "+opp+", le leader ?","Le leader "+opp+" est-il passé à la trappe face à "+me+" ?"]);
+      if(j>=3&&po===n)q(55,me,[me+" a-t-il fait le travail face à la lanterne rouge ?",me+" s'est-il fait piéger par la lanterne rouge ?","Victoire obligatoire pour "+me+" contre la lanterne rouge : mission accomplie ?"]);
+      const ow=tail(RO.form,"V");if(ow>=3)q(72,me,[me+" a-t-il stoppé la série de "+opp+" ("+ow+" victoires de suite) ?",opp+" a-t-il enchaîné face à "+me+" ?"]);
+      if(gap>=2.5)q(68,me,["David contre Goliath : "+me+" a-t-il fait tomber "+opp+" ?",me+" a-t-il créé l'exploit face à "+opp+" ?",opp+", plus fort sur le papier, a-t-il dominé "+me+" ?"]);
+      else if(gap<=-2.5)q(40,me,[me+" a-t-il évité la peau de banane face à "+opp+" ?",me+" a-t-il assumé son statut de favori ?",me+" s'est-il fait surprendre par "+opp+" ?"]);
+      // revanche
+      const prev=past(id).filter(x=>x.hId===oppId||x.aId===oppId).pop();
+      if(prev&&resOf(prev,id)<0)q(82,me,[me+" a-t-il pris sa revanche sur "+opp+" ?","L'heure de la revanche a-t-elle sonné pour "+me+" face à "+opp+" ?",opp+" a-t-il encore fait souffrir "+me+" ?"]);
+      else if(prev&&resOf(prev,id)>0)q(45,me,[me+" a-t-il encore battu "+opp+" ?",opp+" a-t-il pris sa revanche sur "+me+" ?"]);
+      // effectif : absent de marque, fatigue, buteur en feu
+      const X=xiOf(id),best=X.slice().sort((x,y)=>BY[y].ovr-BY[x].ovr);const abs=best.find(nn=>{try{return statusOf(nn,D)}catch(e){return false}});
+      if(abs&&BY[abs].ovr>=85){const sn=shortName(abs);q(84,me,["Sans "+sn+", "+me+" s'en est-il sorti ?",me+" a-t-il survécu à l'absence de "+sn+" ?","Privé de "+sn+", "+me+" a-t-il trouvé la solution ?"])}
+      try{const tired=X.filter(nn=>conditionOf(nn,D)<80).length;if(tired>=3)q(66,me,["Les jambes de "+me+" ont-elles tenu ?",me+" a-t-il payé la fatigue ?","Avec "+tired+" titulaires dans le rouge, "+me+" a-t-il tenu le choc ?"])}catch(e){}
+      const last3=past(id).slice(-3);if(last3.length===3){const sideOf=mm=>mm.hId===id?"h":"a";const sets=last3.map(mm=>new Set((mm.goals||[]).filter(g=>g.side===sideOf(mm)&&!g.og).map(g=>g.n)));
+        const hot=[...sets[0]].find(nn=>sets[1].has(nn)&&sets[2].has(nn)&&X.includes(nn));if(hot){const sn=shortName(hot);q(79,me,[sn+" a-t-il encore marqué pour "+me+" ?","La série de "+sn+" (3 matchs avec un but) a-t-elle continué ?",sn+" est-il toujours en feu ?"])}}
+      // par défaut
+      q(10,me,home?[me+" a-t-il fait respecter son terrain face à "+opp+" ?",me+" a-t-il pris les trois points face à "+opp+" ?","Victoire, nul ou défaite pour "+me+" face à "+opp+" ?",me+" a-t-il tenu son rang face à "+opp+" ?",me+" a-t-il régalé son public face à "+opp+" ?","Combien de buts pour "+me+" face à "+opp+" ?"]
+        :[me+" est-il revenu de chez "+opp+" avec des points ?",me+" a-t-il pris les trois points chez "+opp+" ?","Victoire, nul ou défaite pour "+me+" chez "+opp+" ?",me+" a-t-il réussi son déplacement chez "+opp+" ?",me+" a-t-il fait taire le public de "+opp+" ?","Combien de buts pour "+me+" chez "+opp+" ?"],opp+"|"+(home?"h":"a"))});
+    // rivalité au classement
+    if(!dm&&!cupRound&&ids.length===2){const [x,y]=ids,px=pos(x),py=pos(y),ax=row(x),ay=row(y);
+      if(ax.j>=2&&Math.abs(ax.pts-ay.pts)<=3&&px!==py){const behind=first(nm(px>py?x:y)),ahead=first(nm(px>py?y:x));
+        q(72,"*",[behind+" a-t-il doublé "+ahead+" au classement ?","Le classement a-t-il changé de mains chez les Déniel ? "+behind+" est-il passé devant "+ahead+" ?",ahead+" est-il toujours devant "+behind+" au classement ?","Bataille familiale au classement : "+behind+" a-t-il grillé la politesse à "+ahead+" ?"])}
+      else if(ax.j>=4&&Math.abs(ax.pts-ay.pts)>=9){const lo=first(nm(ax.pts<ay.pts?x:y)),hi=first(nm(ax.pts<ay.pts?y:x));q(50,"*",[lo+" a-t-il grignoté son retard sur "+hi+" ?","L'écart entre "+hi+" et "+lo+" s'est-il encore creusé ?"])}}
     if(!Q.length)return "";
     Q.sort((a,b)=>b.p-a.p);const out=[Q[0]];if(Q[0].who!=="*"){const other=Q.find(x=>x.who!==Q[0].who&&x.who!=="*");if(other)out.push(other)}
-    const strip=(x)=>x.t.split(x.who).join("§");
+    const strip=x=>x.t.split(x.who).join("§");
     if(out.length===2&&strip(out[0])===strip(out[1]))return out[0].t+" Et "+out[1].who+" ?";
-    if(out.length===2&&out[0].p===10&&out[1].p===10)return out[0].t+" Et "+out[1].who+" face à "+out[1].opp+" ?";
-    if(out.length===2&&out[1].p===10)out[1].t="Et "+out[1].who+", face à "+out[1].opp+" ?";
+    if(out.length===2&&out[1].p===10){const [op,ha]=(out[1].opp||"").split("|");out[1].t=pickV(ha==="h"?["Et "+out[1].who+", face à "+op+" ?","Et "+out[1].who+" à domicile contre "+op+" ?","Pendant ce temps, "+out[1].who+" a-t-il battu "+op+" ?"]:["Et "+out[1].who+", chez "+op+" ?","Et "+out[1].who+" en déplacement chez "+op+" ?","Pendant ce temps, "+out[1].who+" a-t-il gagné chez "+op+" ?"],league.id+key+"x")}
     return out.map(x=>x.t).join(" ");
   }
-  function teaserL(D){const ms=league.results[D];if(!ms)return "";const t="*<{{APP}}|Journée "+(D+1)+" à "+slotHour(D)+"h>* : c'est terminé !";let tq="";try{tq=teaser(ms,D,null,D-1)}catch(e){}return t+(tq?"\n_"+tq+"_":"")+"\nRéponse dans l'app."}
+  // les questions des journées précédentes sont évitées pour ne pas se répéter
+  function recent(n,before){const A=new Set();for(let d=before-1;d>=Math.max(0,before-n);d--){const ms=league.results[d];if(!ms)continue;try{teaser(ms,d,null,d-1).split(/(?<=\?)\s+/).forEach(t=>A.add(t))}catch(e){}}return A}
+  function teaserL(D){const ms=league.results[D];if(!ms)return "";const t="*<{{APP}}|Journée "+(D+1)+" à "+slotHour(D)+"h>* : c'est terminé !";let tq="";try{tq=teaser(ms,D,null,D-1,recent(4,D))}catch(e){}return t+(tq?"\n_"+tq+"_":"")+"\nRéponse dans l'app."}
   function teaserC(i){const R=league.cup.rounds[i],ms=league.cup.results[i];if(!ms)return "";const t="*<{{APP}}|"+R.name+" à "+CUP_HOUR+"h>* : c'est terminé !";let tq="";try{tq=teaser(ms,"c"+i,R,R.day)}catch(e){}return t+(tq?"\n_"+tq+"_":"")+"\nRéponse dans l'app."}
   return {results,cupResults,reminder,seasonEnd,teaserL,teaserC};
 })()`;
