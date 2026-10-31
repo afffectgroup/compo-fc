@@ -71,7 +71,7 @@ const REPORT_JS = String.raw`
   function block(title,ms){
     const L=["*<{{APP}}|"+title+">*"];const done=new Set();let n=0;
     league.mine.forEach(mm=>{const m=ms.find(x=>x.hId===mm.id||x.aId===mm.id);if(!m||done.has(m))return;done.add(m);
-      n++;L.push("────────");L.push(teamLine(m,mm.id))});
+      n++;L.push("");L.push("• "+teamLine(m,mm.id))});
     return n?L.join("\n"):"";
   }
   function results(D){
