@@ -384,6 +384,10 @@ body.view-ai .team-name{pointer-events:none}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--accent);color:#08210f;
   font-weight:600;padding:8px 14px;border-radius:8px;z-index:30}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.opn{display:inline-block;margin-left:4px;padding:0 5px;border-radius:5px;background:var(--panel-2,#1a2b22);border:1px solid var(--line,#2a3f33);font-weight:700;font-size:.92em;line-height:1.35}
+.fms{display:inline-flex;gap:2px;margin-left:4px;vertical-align:-1px}
+.fm{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:4px;font-style:normal;font-weight:700;font-size:10px;color:#fff;line-height:1}
+.fm.v{background:#2f9e55}.fm.n{background:#8a8f96}.fm.d{background:#d0453b}
 </style>
 
 <div class="appbar">
@@ -3658,6 +3662,13 @@ function formOf(n,day){const H=(DER.hist[n]||[]).filter(x=>x.d<day&&x.mins>=20).
 function setMods(day){MOD={};INJW={};const teams=[...league.mine.map(m=>lgTeam(m.id)),...league.ai];
   teams.forEach(T=>[...(T.xi||[]),...(T.bench||[]),...(T.res||[])].forEach(n=>{if(!n)return;const c=conditionOf(n,day),f=formOf(n,day),md=moodOf(n,day,T);
     MOD[n]=Math.max(-3,Math.min(3,(f?f.bonus:0)+md.v-Math.min(2.5,(100-c)/10*.6)));INJW[n]=1+Math.min(.6,(100-c)/50)}))}
+function oppInfo(id){try{const T=lgTeam(id),xs=(T&&T.xi||[]).filter(n=>n&&BY[n]).map(n=>BY[n]);
+  const note=xs.length>=11?Math.round(xs.reduce((s,p)=>s+p.ovr,0)/xs.length):null;const L=[];
+  Object.entries(league.results||{}).forEach(([k,ms])=>ms.forEach(m=>{if(m.hId===id||m.aId===id)L.push({t:roundDate(+k).getTime(),m})}));
+  if(league.cup)Object.entries(league.cup.results||{}).forEach(([i,ms])=>(ms||[]).forEach(m=>{if(m.hId===id||m.aId===id)L.push({t:cupDate(league.cup.rounds[i].day).getTime(),m})}));
+  const f=L.sort((a,b)=>a.t-b.t).slice(-3).map(({m})=>{const h=m.hId===id,my=h?m.hs:m.as,op=h?m.as:m.hs;let r=my>op?1:my<op?-1:0;if(!r&&m.win)r=(m.win==="h")===h?1:-1;
+    return `<i class="fm ${r>0?"v":r<0?"d":"n"}" title="${h?"Contre":"À"} ${lgTeam(h?m.aId:m.hId).name} : ${m.hs}-${m.as}">${r>0?"V":r<0?"D":"N"}</i>`}).join("");
+  return (note?` <span class="opn" title="Note du onze">${note}</span>`:"")+(f?` <span class="fms" title="3 derniers matchs">${f}</span>`:"")}catch(e){return ""}}
 function nextDay(){if(!league||!league.schedule)return -1;const c=[];const k=nextRoundIdx();if(k>=0)c.push(k);
   if(league.cup)league.cup.rounds.forEach((r,i)=>{if(!league.cup.results[i])c.push(r.day)});return c.length?Math.min(...c):-1}
 const CUP_NAMES=["Quarts de finale","Demi-finales","Finale"];
@@ -3913,7 +3924,7 @@ function renderMine(){const box=document.getElementById("mineCards");if(!box)ret
     {const fx=[];if(nextK>=0){const f=league.schedule[nextK].find(([h,a])=>h===id||a===id);if(f)fx.push({day:nextK,f,lab:`J${nextK+1}`})}
       if(league.cup)league.cup.rounds.forEach((R,i)=>{if(league.cup.results[i])return;ensureCupTies(i);const f=R.ties&&R.ties.find(([h,a])=>h===id||a===id);if(f)fx.push({day:R.day,f,lab:R.name==="Finale"?"Finale":R.name.startsWith("Demi")?"Demi":R.name.startsWith("Quart")?"Quart":"Barrage",cup:true})});
       fx.sort((a,b)=>a.day-b.day||(a.cup?1:0)-(b.cup?1:0)).slice(0,2).forEach(x=>{const home=x.f[0]===id,op=lgTeam(home?x.f[1]:x.f[0]);const d=x.cup?cupDate(x.day):roundDate(x.day);
-        const row=el("div","mc-row");row.append(el("span","mc-lab"+(x.cup?" cup":""),x.lab),el("span",null,`${home?"Contre":"À"} ${op.name}${home?" (dom.)":" (ext.)"}`),el("span","mc-cd",countdown(d)));c.append(row)});
+        const row=el("div","mc-row");row.append(el("span","mc-lab"+(x.cup?" cup":""),x.lab),(()=>{const s=el("span");s.innerHTML=`${home?"Contre":"À"} ${op.name.replace(/[<&]/g,"")}${home?" (dom.)":" (ext.)"}${oppInfo(op.id)}`;return s})(),el("span","mc-cd",countdown(d)));c.append(row)});
       const T1=lgTeam(id);if(book.teams.some(t=>t.id===id))c.append(el("p","mc-sub",`Tactique : ${tacOf(T1).lab}`))}
     box.append(c)})}
 function renderAIGrid(){const g=document.getElementById("aiGrid");if(!g)return;g.replaceChildren();if(!league||!league.ai)return;const st=standings();
@@ -4180,8 +4191,8 @@ document.getElementById("imgBtn").onclick=async e=>{
       if(!isLg||(ab&&!ab.hidden)){bar.hidden=true;return}
       const k=nextDay();if(k<0){bar.hidden=true;return}
       const fx=[];
-      if(league.schedule[k]&&!league.results[k])league.schedule[k].forEach(([h,a])=>{if(h===id)fx.push(["",`contre <b>${lgTeam(a).name}</b> (dom.)`]);if(a===id)fx.push(["",`à <b>${lgTeam(h).name}</b> (ext.)`])});
-      if(league.cup)league.cup.rounds.forEach((R,i)=>{if(R.day!==k||league.cup.results[i])return;ensureCupTies(i);(R.ties||[]).forEach(([h,a])=>{if(h===id||a===id)fx.push(["cup",`Coupe · ${R.name} contre <b>${lgTeam(h===id?a:h).name}</b> à ${CUP_HOUR}h`])})});
+      if(league.schedule[k]&&!league.results[k])league.schedule[k].forEach(([h,a])=>{if(h===id)fx.push(["",`contre <b>${lgTeam(a).name}</b> (dom.)${oppInfo(a)}`]);if(a===id)fx.push(["",`à <b>${lgTeam(h).name}</b> (ext.)${oppInfo(h)}`])});
+      if(league.cup)league.cup.rounds.forEach((R,i)=>{if(R.day!==k||league.cup.results[i])return;ensureCupTies(i);(R.ties||[]).forEach(([h,a])=>{if(h===id||a===id)fx.push(["cup",`Coupe · ${R.name} contre <b>${lgTeam(h===id?a:h).name}</b>${oppInfo(h===id?a:h)} à ${CUP_HOUR}h`])})});
       if(!fx.length){bar.hidden=true;return}
       const lgK=!!(league.schedule[k]&&!league.results[k]),d=lgK?roundDate(k):cupDate(k),today=dstr(new Date()),tm=new Date();tm.setDate(tm.getDate()+1);
       const when=dstr(d)===today?"aujourd'hui":dstr(d)===dstr(tm)?"demain":fmtDate(dstr(d));
