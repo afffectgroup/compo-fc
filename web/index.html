@@ -994,8 +994,7 @@ aside{grid-template-columns:minmax(0,1fr)}aside>.box{min-width:0}
       </div>
       <div class="filters">
         <input type="search" id="q" placeholder="Rechercher un joueur ou un club" aria-label="Rechercher">
-        <label class="chip"><input type="checkbox" id="fPos" checked> Postes compatibles</label>
-        <label class="chip"><input type="checkbox" id="fYoung"> Jeunes ≤ 21</label>
+        <input type="checkbox" id="fPos" hidden><input type="checkbox" id="fYoung" hidden>
         <div class="seg" role="group" aria-label="Filtrer par ligne" id="fGroup">
           <button type="button" data-g="" class="on">Tous</button>
           <button type="button" data-g="GK">Gardiens</button>
@@ -3676,7 +3675,7 @@ function openPicker(t){
   if(RO()){toast(viewAI!=null?"Équipe IA : lecture seule":`Équipe de ${state.owner} : lecture seule`);return}
   target=t;
   document.getElementById("sheetTitle").textContent = t.kind==="watch"?"Ajouter un joueur à surveiller":t.kind==="xi"?`Choisir : ${POS_FR[t.role]}`:t.kind==="res"?"Choisir un réserviste (moins de 20 ans)":"Choisir un remplaçant";
-  const fPos=document.getElementById("fPos"); fPos.checked=t.role!=="SUB"; fPos.disabled=t.role==="SUB"; setGroup("");
+  const fPos=document.getElementById("fPos"); fPos.checked=false; document.getElementById("fYoung").checked=false; setGroup(t.kind==="xi"&&GROUP_OF[t.role]?GROUP_OF[t.role]:"");
   document.getElementById("q").value="";
   const cur=currentName();
   {let extra="";try{const k=myNextDay();if(cur&&k>=0&&DER.hist[cur]){const md=moodOf(cur,k,state);extra=` · condition ${conditionOf(cur,k)} %`+(md.why.length?` · ${md.why.join(", ")}`:"")}}catch(e){}
@@ -3774,7 +3773,7 @@ document.getElementById("q").oninput=renderResults;
 ["fPos","fYoung","fSort"].forEach(id=>document.getElementById(id).onchange=renderResults);
 const GROUP_OF={GK:"GK",RB:"DEF",CB:"DEF",LB:"DEF",CDM:"MID",CM:"MID",CAM:"MID",LW:"ATT",RW:"ATT",ST:"ATT"};
 function setGroup(g){document.querySelectorAll("#fGroup button").forEach(b=>{const on=b.dataset.g===g;b.classList.toggle("on",on);b.setAttribute("aria-pressed",on)});
-  document.getElementById("fPos").closest("label").classList.toggle("off",!!g);}
+  {const l=document.getElementById("fPos").closest("label");if(l)l.classList.toggle("off",!!g)}}
 document.querySelectorAll("#fGroup button").forEach(b=>b.onclick=()=>{setGroup(b.dataset.g);renderResults()});
 document.getElementById("closeBtn").onclick=closePicker;
 document.getElementById("overlay").onclick=e=>{if(e.target.id==="overlay")closePicker()};
