@@ -4268,7 +4268,7 @@ function initCup(){const st=new Date(league.start+"T00:00:00");let first=-1;cons
   const ids=shuffleSeeded([...league.mine.map(m=>m.id),...league.ai.map(t=>t.id)],rngOf(hstr("cup|"+league.id))),n=ids.length,rounds=[];
   const pairs=a=>{const t=[];for(let j=0;j+1<a.length;j+=2)t.push([a[j],a[j+1]]);return t};
   if(n>8){const k=(n-8)*2,mineIds=league.mine.map(m=>m.id),aiIds=ids.filter(x=>!mineIds.includes(x)),pl=aiIds.slice(0,k),byes=ids.filter(x=>!pl.includes(x));rounds.push({name:"Barrages",ties:pairs(pl),n:k/2});rounds.push({name:"Quarts de finale",byes,ties:null,n:4})}
-  else rounds.push({name:"Quarts de finale",ties:pairs(ids),n:4});
+  else rounds.push({name:"Quarts de finale",ties:pairs(splitMine(ids)),n:4});
   rounds.push({name:"Demi-finales",ties:null,n:2},{name:"Finale",ties:null,n:1});
   league.cup={rounds,results:{}};cupDays()}
 function cupDays(){const C=league.cup,last=league.schedule.length-1,k=C.rounds.length-1,picks=[];
@@ -4279,7 +4279,12 @@ function fixNames(){try{if(!league||!league.ai)return;const f=s=>typeof s==="str
   const fx=m=>{m.hName=f(m.hName);m.aName=f(m.aName)};Object.values(league.results||{}).forEach(ms=>(ms||[]).forEach(fx));if(league.cup)Object.values(league.cup.results||{}).forEach(ms=>(ms||[]).forEach(fx))}catch(e){}}
 function fixFinal(){try{const C=league&&league.cup;if(!C||!league.schedule)return;const k=C.rounds.length-1,last=league.schedule.length-1;if(!C.results[k]&&C.rounds[k].day===last+14)C.rounds[k].day=last+2}catch(e){}}
 function cupWinnerId(m){return m.win?(m.win==="h"?m.hId:m.aId):(m.hs>m.as?m.hId:m.aId)}
-function ensureCupTies(i){const R=league.cup.rounds[i];if(R.ties||i===0)return;const prev=league.cup.results[i-1];if(!prev)return;let w=prev.map(cupWinnerId);if(R.byes)w=shuffleSeeded([...R.byes,...w],rngOf(hstr("cup|"+league.id+"|"+i)));R.ties=[];for(let j=0;j+1<w.length;j+=2)R.ties.push([w[j],w[j+1]])}
+// Les deux frères dans des moitiés opposées du tableau : ils ne peuvent se croiser qu'en finale
+function splitMine(arr){const a=[...arr],half=a.length/2,mine=league.mine.map(m=>m.id),pos=mine.map(id=>a.indexOf(id)).filter(x=>x>=0);
+  if(a.length<4||pos.length<2)return a;const[p,q]=pos;if((p<half)!==(q<half))return a;
+  const targets=[];for(let k=(q<half?half:0);k<(q<half?a.length:half);k++)if(!mine.includes(a[k]))targets.push(k);if(!targets.length)return a;
+  const t=targets[0];[a[q],a[t]]=[a[t],a[q]];return a}
+function ensureCupTies(i){const R=league.cup.rounds[i];if(R.ties||i===0)return;const prev=league.cup.results[i-1];if(!prev)return;let w=prev.map(cupWinnerId);if(R.byes)w=splitMine(shuffleSeeded([...R.byes,...w],rngOf(hstr("cup|"+league.id+"|"+i))));R.ties=[];for(let j=0;j+1<w.length;j+=2)R.ties.push([w[j],w[j+1]])}
 const cupLast=()=>league.cup.rounds.length-1;
 function seasonDone(){return league&&Object.keys(league.results).length===league.schedule.length&&(!league.cup||!!league.cup.results[cupLast()])}
 function awards(){const st=standings(),ps=playerStats(),top=(k,min)=>ps.filter(s=>s[k]>0).sort((a,b)=>b[k]-a[k])[0];
