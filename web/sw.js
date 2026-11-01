@@ -1,7 +1,7 @@
 // Service worker : app installable, ouverture instantanée et consultation hors ligne.
 // - Page, scripts et icônes : servis tout de suite depuis le cache, mis à jour en arrière-plan.
 // - Données (/api) : réseau d'abord, cache en secours hors ligne.
-const CACHE = "compo-fc-v3";
+const CACHE = "compo-fc-v4";
 const SHELL = ["/", "/shim.js", "/flags.js?v=1", "/manifest.webmanifest", "/favicon.ico", "/favicon-32.png", "/apple-touch-icon.png", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", e => {
