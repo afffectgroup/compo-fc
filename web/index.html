@@ -887,6 +887,36 @@ aside{grid-template-columns:minmax(0,1fr)}aside>.box{min-width:0}
 .pre-side b{white-space:normal!important;overflow-wrap:anywhere}
 .card .bottom{padding-bottom:6%}
 .card .mood{left:50.5%!important;width:13%!important;top:9%!important}
+/* ===== Tableau de coupe ===== */
+.bpre{margin:4px 0 18px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.bpre-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,300px));gap:10px;margin-top:8px;align-items:start}
+.bpre .note{margin:10px 0 0}
+.bracket{display:grid!important;grid-template-columns:repeat(var(--cols,3),minmax(0,1fr))!important;gap:0 28px!important;overflow:visible!important}
+.bcol{display:flex!important;flex-direction:column;gap:10px!important;justify-content:flex-start!important;min-width:0}
+.bhead{min-height:44px}.bhead h4{margin:0}.bhead .note{font-size:12px}
+.bbody{flex:1;display:flex;flex-direction:column;justify-content:space-around;gap:14px}
+.bpair{position:relative;display:flex;flex-direction:column;justify-content:space-around;gap:14px;flex:1}
+.btie{position:relative;z-index:1}
+.bl{position:relative;padding:2px 0}
+.bl span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bl b{font-variant-numeric:tabular-nums;min-width:14px;text-align:right}
+.bl.w{color:var(--fg)!important;font-weight:700}.bl.w b{color:var(--accent)}
+.bl.l{opacity:.6}
+.bl.tbd span{font-style:italic;color:var(--muted);opacity:.7}
+.bl.mine span{color:var(--accent);font-weight:600}
+.btie .bl.w::before{display:none!important}
+.btie.done{border-color:var(--line)}
+@media (min-width:760px){
+  .bpair.link::after{content:"";position:absolute;right:-15px;top:25%;bottom:25%;width:2px;background:var(--line);border-radius:2px}
+  .bpair.link .btie::after{content:"";position:absolute;right:-15px;top:50%;width:14px;height:2px;background:var(--line)}
+  .bbody.in .btie::before{content:"";position:absolute;left:-14px;top:50%;width:14px;height:2px;background:var(--line)}
+  .bcol:not(:first-child) .bhead{padding-left:2px}
+}
+@media (max-width:759px){
+  .bracket{grid-template-columns:1fr!important;gap:18px!important}
+  .bbody,.bpair{gap:8px}
+}
+.cupw{margin-top:16px}
 </style>
 
 </head>
@@ -4407,14 +4437,25 @@ function renderLeague(){
       [el("td",null,i+1),nm,el("td",null,s.j),el("td",null,s.g),el("td",null,s.n),el("td",null,s.p),el("td","hide-s",s.bp),el("td","hide-s",s.bc),el("td",null,(s.bp-s.bc>0?"+":"")+(s.bp-s.bc)),el("td","pts",s.pts),fm].forEach(x=>tr.append(x));tb.append(tr)});
     t.append(tb);wrap.append(t);box.append(wrap)}
   else if(lgTab==="cup"){
-    const C=league.cup;const wrap=el("div","bracket");wrap.style.gridTemplateColumns=`repeat(${C.rounds.length},minmax(150px,1fr))`;
-    C.rounds.forEach((R,i)=>{ensureCupTies(i);const col=el("div","bcol");const d=roundDate(R.day);col.append(el("h4",null,R.name),el("span","note",fmtDate(dstr(d))+` à ${CUP_HOUR}h`));
-      const res=C.results[i];const n=R.n||(R.ties?R.ties.length:1);
-      for(let j=0;j<n;j++){const t=R.ties&&R.ties[j],m=res&&res[j];const b=el("button","btie"+(lgOpen===`c${i}-${j}`?" on":""));b.type="button";b.disabled=!m;
-        const line=(id,side)=>{const row=el("div","bl"+(id&&isMine(id)?" mine":"")+(m&&m.win===side?" w":""));row.append(el("span",null,id?lgTeam(id).name:"À déterminer"),el("b",null,m?(side==="h"?m.hs:m.as):""));return row};
-        b.append(line(t&&t[0],"h"),line(t&&t[1],"a"));if(m&&(m.et||m.pens))b.append(el("small",null,m.pens?`t.a.b. ${m.pens.h.filter(x=>x[1]).length}-${m.pens.a.filter(x=>x[1]).length}`:"a.p."));
-        b.onclick=()=>{lgOpen=lgOpen===`c${i}-${j}`?null:`c${i}-${j}`;renderLeague()};col.append(b)}
-      wrap.append(col)});
+    const C=league.cup;
+    const tie=(R,i,j)=>{const t=R.ties&&R.ties[j],m=C.results[i]&&C.results[i][j],wid=m?cupWinnerId(m):null;
+      const b=el("button","btie"+(lgOpen===`c${i}-${j}`?" on":"")+(m?" done":""));b.type="button";b.disabled=!m;
+      const line=(id,side)=>{const row=el("div","bl"+(id&&isMine(id)?" mine":"")+(m&&id===wid?" w":"")+(m&&id&&id!==wid?" l":"")+(!id?" tbd":""));
+        row.append(el("span",null,id?lgTeam(id).name:"À déterminer"),el("b",null,m?String(side==="h"?m.hs:m.as):""));return row};
+      b.append(line(t&&t[0],"h"),line(t&&t[1],"a"));if(m&&(m.et||m.pens))b.append(el("small",null,m.pens?`t.a.b. ${m.pens.h.filter(x=>x[1]).length}-${m.pens.a.filter(x=>x[1]).length}`:"après prolongation"));
+      b.onclick=()=>{lgOpen=lgOpen===`c${i}-${j}`?null:`c${i}-${j}`;renderLeague()};return b};
+    const head=(R,i)=>{const d=cupDate(R.day),hd=el("div","bhead"),st=C.results[i]?"Joué":(i===0||C.results[i-1])&&R.ties?"À venir":"";
+      hd.append(el("h4",null,R.name),el("span","note",d.toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short"})+` à ${CUP_HOUR}h`));return hd};
+    const main=C.rounds.map((R,i)=>({R,i})).filter(x=>x.R.name!=="Barrages");
+    C.rounds.forEach((R,i)=>{try{ensureCupTies(i)}catch(e){}});
+    // tour préliminaire à part (les qualifiés directs n'y jouent pas)
+    C.rounds.forEach((R,i)=>{if(R.name!=="Barrages")return;const pre=el("div","bpre");pre.append(head(R,i));const row=el("div","bpre-row");const n=R.n||(R.ties?R.ties.length:1);for(let j=0;j<n;j++)row.append(tie(R,i,j));pre.append(row);
+      const byes=(C.rounds[i+1]&&C.rounds[i+1].byes)||[];if(byes.length)pre.append(el("p","note",`Qualifiés directement : ${byes.map(id=>lgTeam(id).name).join(", ")}`));box.append(pre)});
+    const wrap=el("div","bracket");wrap.style.setProperty("--cols",main.length);
+    main.forEach(({R,i},ci)=>{const col=el("div","bcol");col.append(head(R,i));const body=el("div","bbody");const n=R.n||(R.ties?R.ties.length:1);
+      if(n>1){for(let j=0;j<n;j+=2){const pr=el("div","bpair"+(ci<main.length-1?" link":""));pr.append(tie(R,i,j));if(j+1<n)pr.append(tie(R,i,j+1));body.append(pr)}}
+      else{const pr=el("div","bpair final");pr.append(tie(R,i,0));body.append(pr)}
+      if(ci>0)body.classList.add("in");col.append(body);wrap.append(col)});
     box.append(wrap);
     if(C.results[cupLast()]){const w=lgTeam(cupWinnerId(C.results[cupLast()][0]));const ch=el("div","champ cupw");ch.append(el("span",null,"Vainqueur de la coupe"),el("b",null,w.name));box.append(ch)}
     if(typeof lgOpen==="string"&&lgOpen.startsWith("c")){const [i,j]=lgOpen.slice(1).split("-").map(Number),m=C.results[i]&&C.results[i][j];if(m){const d=matchDetail(m);if(m.pens){const pb=el("div","subs");const pc=s=>{const u=el("ul","gcol "+s);m.pens[s].forEach(([n,ok])=>{const li=el("li");li.append(el("i",ok?"ic-ok":"ic-pm"),document.createTextNode(" "+shortName(n)));u.append(li)});return u};pb.append(el("span","sublab","Tirs au but"),el("span"),pc("h"),pc("a"));d.prepend(pb)}box.append(d)}}}
