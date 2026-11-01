@@ -3710,7 +3710,7 @@ function openPicker(t){
   const cur=currentName();
   {let extra="";try{const k=myNextDay();if(cur&&k>=0&&DER.hist[cur]){const md=moodOf(cur,k,state);extra=` · condition ${conditionOf(cur,k)} %`+(md.why.length?` · ${md.why.join(", ")}`:"")}}catch(e){}
    document.getElementById("current").textContent=cur?`Actuellement : ${cur}${extra}`:"Poste vide";}
-  document.getElementById("removeBtn").hidden=!cur;
+  document.getElementById("removeBtn").hidden=!cur||t.kind==="watch"||(!!lockedRoster()&&!(t.kind==="res"&&!resClosed(state)));
   const cb=document.getElementById("capBtn"); cb.hidden=!(cur&&t.kind==="xi"); cb.textContent=state.captain===cur?"Retirer le brassard":"Nommer capitaine";
   document.getElementById("conflict").hidden=true; pending=null;
   document.getElementById("overlay").hidden=false;
