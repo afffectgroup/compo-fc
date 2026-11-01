@@ -4717,6 +4717,13 @@ select.btn{box-shadow:var(--well)}
 .mc-name{font-size:19px!important;letter-spacing:-.02em}
 .card .pc{font-size:clamp(6px,1.3vw,8px)!important}
 .overlay.rv{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+/* Poppins : colonnes qui s'adaptent au texte (scores, chiffres) */
+.rrow{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)!important}
+.rrow b{white-space:nowrap;min-width:64px;font-size:18px!important;letter-spacing:-.02em!important}
+.rrow.up b{font-size:14px!important}
+@media (max-width:420px){.rrow{padding:10px!important;gap:8px!important;font-size:14px!important}.rrow b{min-width:56px;padding:2px 8px!important}}
+.une-h{font-size:clamp(17px,4vw,28px)!important;line-height:1.15!important}
+@media (max-width:420px){.rv-tn{font-size:16px!important}.rv-n{font-size:52px!important}.mc-name{font-size:17px!important}}
 </style>
 <script>
 /* ---- Buts en motion design : ralenti 2D généré à partir des données du but (déterministe) ---- */
