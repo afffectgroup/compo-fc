@@ -174,7 +174,7 @@ async function runTick(force) {
     if (!after || after.id !== before.id || cnt(after) < cnt(before)) { console.error("tick refusé : le moteur aurait modifié la saison", before.id, after && after.id); return; }
     store.docs.league = after; // tick est synchrone : aucune écriture n'a pu arriver entre-temps
     if (res.bdo && res.bdo.n) { const A = store.docs.awards || { list: [] }; if (!A.list.some(x => x.lg === after.id)) { A.list.push({ lg: after.id, season: after.season || 1, n: res.bdo.n, team: res.bdo.team, pts: res.bdo.pts }); store.docs.awards = A; } }
-    store.meta = { ...res.meta, nextAt: res.nextSlotAt, pendingSlack: store.meta.pendingSlack || [] };
+    store.meta = { ...res.meta, nextAt: res.nextSlotAt, pendingSlack: store.meta.pendingSlack || [], upcoming: res.upcoming || null, reminded: (store.meta.reminded || []).slice(-60) };
     persist();
     // Anti-spoil : Slack annonce seulement la fin du match, le résultat se découvre dans l'app.
     // Le bilan de fin de saison attend que vous ayez vu le dernier match (ou 12 h).
@@ -194,6 +194,33 @@ async function runTick(force) {
   } finally { running = false; }
 }
 setInterval(() => runTick(false), 60000);
+
+// ---------- Rappel 1 h avant le match : seulement pour celui qui n'a pas vu son dernier résultat ----------
+async function checkReminders() {
+  const up = store.meta && store.meta.upcoming, L = store.docs.league, B = store.docs.book;
+  if (!up || !Array.isArray(up.ev) || !L || up.lg !== L.id || !B || !Array.isArray(B.teams)) return;
+  const now = Date.now();
+  store.meta.reminded = store.meta.reminded || [];
+  for (const e of up.ev) {
+    if (now < e.t - 3600e3 || now >= e.t) continue;
+    const late = [];
+    for (const id of e.teams || []) {
+      const owner = (B.teams.find(t => t.id === id) || {}).owner, key = up.last && up.last[id];
+      if (!owner || !key) continue;
+      const rk = e.kind + e.t + "|" + owner;
+      if (store.meta.reminded.includes(rk) || seenBy(owner, key, L.id)) continue;
+      late.push(owner); store.meta.reminded.push(rk);
+    }
+    if (!late.length) continue;
+    persist();
+    const who = late.length > 1 ? late.slice(0, -1).join(", ") + " et " + late[late.length - 1] : late[0];
+    const comp = e.kind === "C" ? "coupe" : "championnat", plural = late.length > 1;
+    const min = Math.max(1, Math.round((e.t - now) / 60000)), dans = min >= 55 ? "dans 1 h" : "dans " + min + " min";
+    const text = `*Attention ${who}* : prochain match de ${comp} ${dans} (*<{{APP}}|${e.lab}>*) et ${plural ? "vous n'avez" : "tu n'as"} pas encore regardé ${plural ? "vos" : "ton"} dernier${plural ? "s" : ""} résultat${plural ? "s" : ""}. ${plural ? "Pensez" : "Pense"} à ajuster ${plural ? "vos équipes" : "ton équipe"} avant le coup d'envoi !`;
+    try { await slack(text); } catch (err) { console.error(err.message); }
+  }
+}
+setInterval(() => { checkReminders().catch(() => {}); }, 60000);
 setTimeout(() => runTick(true), 3000);
 
 // ---------- HTTP ----------

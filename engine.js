@@ -317,9 +317,17 @@ function tick(docs, meta, now = new Date()) {
     // Pas de rappel séparé : le prochain match et les absents sont ajoutés au dernier message de résultats.
     const k = w.eval("nextDay()");
     const nextSlotAt = w.eval("nextEventAt()");
+    // Prochains matchs de nos équipes + dernier résultat de chacune (pour le rappel Slack 1 h avant)
+    let upcoming = null;
+    try { upcoming = JSON.parse(w.eval(`(()=>{const k=nextDay();const ids=league.mine.map(m=>m.id);const ev=[];
+      if(k>=0&&league.schedule[k]&&!league.results[k])ev.push({t:roundDate(k).getTime(),lab:"J"+(k+1)+" à "+slotHour(k)+"h",kind:"L",teams:ids.filter(id=>league.schedule[k].some(f=>f.includes(id)))});
+      if(k>=0&&league.cup)league.cup.rounds.forEach((R,i)=>{if(R.day!==k||league.cup.results[i])return;try{ensureCupTies(i)}catch(e){}ev.push({t:cupDate(k).getTime(),lab:R.name+" à "+CUP_HOUR+"h",kind:"C",teams:ids.filter(id=>(R.ties||[]).some(f=>f.includes(id)))})});
+      const last={};ids.forEach(id=>{let b=null;Object.entries(league.results||{}).forEach(([kk,ms])=>{if((ms||[]).some(m=>m.hId===id||m.aId===id)){const t=roundDate(+kk).getTime();if(!b||t>b.t)b={t,key:"L"+kk}}});
+        if(league.cup)Object.entries(league.cup.results||{}).forEach(([i,ms])=>{if((ms||[]).some(m=>m.hId===id||m.aId===id)){const t=cupDate(league.cup.rounds[i].day).getTime();if(!b||t>b.t)b={t,key:"C"+i}}});last[id]=b?b.key:null});
+      return JSON.stringify({ev:ev.sort((a,b)=>a.t-b.t),last,lg:league.id})})()`)); } catch (e) {}
     
     return {
-      league, book, msgs, errors: page.errors, nextSlotAt, bdo,
+      league, book, msgs, errors: page.errors, nextSlotAt, bdo, upcoming,
       meta: { ...meta, posted: [...posted], postedCup: [...postedCup], seasonEnd: seasonEndPosted, leagueId: league.id },
     };
   } finally { page.close(); }
