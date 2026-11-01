@@ -3036,13 +3036,14 @@ function renderTabs(){
   book.teams.forEach((tm,i)=>{const b=el("button","tab"+(i===book.cur?" on":""),tm.name||"Sans nom");b.type="button";
     b.setAttribute("aria-pressed",i===book.cur);b.onclick=()=>switchTeam(i);t.append(b)});
   if(viewAI!=null)t.querySelectorAll(".tab").forEach(b=>b.classList.remove("on"));
-  const xb=document.getElementById("absBanner");if(xb){xb.replaceChildren();const k=typeof nextDay==="function"?nextDay():-1;
+  const xb=document.getElementById("absBanner");if(xb){xb.replaceChildren();const k=typeof myNextDay==="function"?myNextDay():-1;
     const inLg=viewAI==null&&k>=0&&league&&league.mine.some(m=>m.id===state.id);
     if(inLg){const xiOut=state.xi.filter(n=>n&&statusOf(n,k)),bOut=state.bench.filter(n=>n&&statusOf(n,k)),warn=state.xi.filter(n=>n&&!statusOf(n,k)&&yellowThreat(n,k)),tired=state.xi.filter(n=>n&&!statusOf(n,k)&&conditionOf(n,k)<80);
-      if(xiOut.length||bOut.length||warn.length||tired.length){const d=roundDate(k);const when=dstr(d)===dstr(new Date())?"aujourd'hui":"le "+fmtDate(dstr(d));
-        const h=el("p","ab-h");h.append(el("b",null,`${dayLabel(k)||"Prochain match"} · ${when} à ${slotHour(k)}h`));xb.append(h);
+      if(xiOut.length||bOut.length||warn.length||tired.length){const d=new Date(evTime(k));const when=dstr(d)===dstr(new Date())?"aujourd'hui":"le "+fmtDate(dstr(d));
+        const lgK=!!(league.schedule[k]&&!league.results[k]),cupR=league.cup&&league.cup.rounds.find((R,i)=>R.day===k&&!league.cup.results[i]);
+        const h=el("p","ab-h");h.append(el("b",null,`${lgK?"Journée "+(k+1):cupR?"Coupe, "+cupR.name.toLowerCase():"Prochain match"}, ${when} à ${d.getHours()}h`));xb.append(h);
         const fmt=n=>{const s=statusOf(n,k);return `${shortName(n)} (${s.type==="inj"?"blessé":"suspendu"}, ${s.left} match${s.left>1?"s":""})`};
-        if(xiOut.length)xb.append(el("p",null,`${xiOut.length>1?"Titulaires absents":"Titulaire absent"} : ${xiOut.map(fmt).join(", ")}. Remplace-${xiOut.length>1?"les":"le"} avant ${slotHour(k)}h, sinon le meilleur remplaçant disponible jouera à sa place.`));
+        if(xiOut.length)xb.append(el("p",null,`${xiOut.length>1?"Titulaires absents":"Titulaire absent"} : ${xiOut.map(fmt).join(", ")}. Remplace-${xiOut.length>1?"les":"le"} avant ${d.getHours()}h, sinon le meilleur remplaçant disponible jouera à sa place.`));
         if(bOut.length)xb.append(el("p","muted",`Remplaçant${bOut.length>1?"s":""} indisponible${bOut.length>1?"s":""} : ${bOut.map(fmt).join(", ")}.`));
         if(tired.length)xb.append(el("p","muted",`Fatigué${tired.length>1?"s":""} : ${tired.map(n=>`${shortName(n)} (${conditionOf(n,k)} %)`).join(", ")}. Un joueur fatigué joue moins bien et se blesse plus facilement.`));
         if(warn.length)xb.append(el("p","muted",`Suspendu${warn.length>1?"s":""} au prochain carton jaune : ${warn.map(shortName).join(", ")}.`));
@@ -3159,7 +3160,7 @@ function cardFor(p,role){
   c.title=p.name;
   if(photos[p.name]&&/^https?:|^data:image\/|^\/photos\//.test(photos[p.name])){const im=document.createElement("img");im.className="ph";im.alt="";im.loading="lazy";im.decoding="async";im.draggable=false;im.src=photos[p.name];im.onerror=()=>im.remove();c.classList.add("has-ph");c.append(im)}
   c.append(top,bottom);
-  const k=typeof nextDay==="function"?nextDay():-1, st=k>=0?statusOf(p.name,k):null;
+  const k=typeof myNextDay==="function"?myNextDay():-1, st=k>=0?statusOf(p.name,k):null;
   if(k>=0&&DER.hist[p.name]){const cnd=conditionOf(p.name,k),fm=formOf(p.name,k);const bar=el("div","cond");const fi=el("i");fi.style.width=cnd+"%";fi.className=cnd>=88?"ok":cnd>=80?"mid":"low";bar.append(fi);c.append(bar);
     if(fm&&Math.abs(fm.bonus)>=.6){const ar=el("span","fm "+(fm.bonus>0?"up":"down"));meta.append(ar)}
     const team=(typeof state!=="undefined"&&state&&[...(state.xi||[]),...(state.bench||[]),...(state.res||[])].includes(p.name))?state:null;
@@ -3322,7 +3323,7 @@ function openPicker(t){
   const fPos=document.getElementById("fPos"); fPos.checked=t.role!=="SUB"; fPos.disabled=t.role==="SUB"; setGroup("");
   document.getElementById("q").value="";
   const cur=currentName();
-  {let extra="";try{const k=nextDay();if(cur&&k>=0&&DER.hist[cur]){const md=moodOf(cur,k,state);extra=` · condition ${conditionOf(cur,k)} %`+(md.why.length?` · ${md.why.join(", ")}`:"")}}catch(e){}
+  {let extra="";try{const k=myNextDay();if(cur&&k>=0&&DER.hist[cur]){const md=moodOf(cur,k,state);extra=` · condition ${conditionOf(cur,k)} %`+(md.why.length?` · ${md.why.join(", ")}`:"")}}catch(e){}
    document.getElementById("current").textContent=cur?`Actuellement : ${cur}${extra}`:"Poste vide";}
   document.getElementById("removeBtn").hidden=!cur;
   const cb=document.getElementById("capBtn"); cb.hidden=!(cur&&t.kind==="xi"); cb.textContent=state.captain===cur?"Retirer le brassard":"Nommer capitaine";
@@ -3380,7 +3381,7 @@ function renderResults(){
     const where=(()=>{const i=state.xi.indexOf(p.name);if(i>=0){const f=FORMATIONS[state.formation]||FORMATIONS["4-3-3"];return "Titulaire "+POS_FR[f[i][0]]}if((state.bench||[]).includes(p.name))return "Remplaçant";if((state.res||[]).includes(p.name))return "Réserve";return ""})();
     const isCur=p.name===currentName(),locked=!!lockedRoster();
     const r=el("button","row"+(u.has(p.name)&&!locked?" used":"")+(isCur?" current":"")+(others.length?" conflict":"")); r.type="button";
-    const who=el("div","who"), sub=el("span"); sub.append(flagEl(p.nat,"iflag"), document.createTextNode(`${p.club}${p.age>0?" · "+p.age+" ans":""}${where&&!locked?" · déjà dans l'équipe":""}${others.length?" · déjà dans « "+others.map(t=>t.name).join(" », « ")+" »":""}`)); const nm=el("b",null,p.name); if(where&&locked)nm.append(el("small","where",isCur?"Actuellement ici":where)); const ps=statusOf(p.name,nextDay()); if(ps)sub.append(el("em","abs",` · ${ps.type==="inj"?"blessé":"suspendu"} (${ps.left} match${ps.left>1?"s":""})`)); who.append(nm,sub);
+    const who=el("div","who"), sub=el("span"); sub.append(flagEl(p.nat,"iflag"), document.createTextNode(`${p.club}${p.age>0?" · "+p.age+" ans":""}${where&&!locked?" · déjà dans l'équipe":""}${others.length?" · déjà dans « "+others.map(t=>t.name).join(" », « ")+" »":""}`)); const nm=el("b",null,p.name); if(where&&locked)nm.append(el("small","where",isCur?"Actuellement ici":where)); const ps=statusOf(p.name,myNextDay()); if(ps)sub.append(el("em","abs",` · ${ps.type==="inj"?"blessé":"suspendu"} (${ps.left} match${ps.left>1?"s":""})`)); who.append(nm,sub);
     r.append(el("div","r "+tierOf(p),p.ovr),who,el("div","tag",p.pos.map(x=>POS_FR[x]).join(" / ")));
     r.onclick=()=>pick(p.name); box.append(r);
   }
@@ -3493,7 +3494,7 @@ const SETP=[["pen","Penalty"],["fk","Coup franc direct"],["fki","Coup franc indi
 let spOpen=null;
 // Choix automatique des tireurs manquants : les meilleurs joueurs du onze, selon le poste
 function autoTakers(){
-  const k=(typeof league!=="undefined"&&league&&league.schedule)?nextDay():-1;
+  const k=(typeof league!=="undefined"&&league&&league.schedule)?myNextDay():-1;
   const xi=state.xi.filter(n=>n&&BY[n]&&!(k>=0&&statusOf(n,k))).map(n=>BY[n]);
   const pref={pen:["ST","CAM","LW","RW"],fk:["CAM","LW","RW","CM","ST"],fki:["CM","CAM","CDM","LW","RW"],ckl:["RW","LW","CAM","CM"],ckr:["LW","RW","CAM","CM"]};
   const used=new Set();
@@ -3870,6 +3871,10 @@ function oppInfo(id){try{const T=lgTeam(id),xs=(T&&T.xi||[]).filter(n=>n&&BY[n])
   const f=L.sort((a,b)=>a.t-b.t).slice(-3).map(({m})=>{const h=m.hId===id,my=h?m.hs:m.as,op=h?m.as:m.hs;let r=my>op?1:my<op?-1:0;if(!r&&m.win)r=(m.win==="h")===h?1:-1;
     return `<i class="ofm ${r>0?"v":r<0?"d":"n"}" title="${h?"Contre":"À"} ${lgTeam(h?m.aId:m.hId).name} : ${m.hs}-${m.as}">${r>0?"V":r<0?"D":"N"}</i>`}).join("");
   return (note?` <span class="opn" title="Note du onze">${note}</span>`:"")+(f?` <span class="fms" title="3 derniers matchs">${f}</span>`:"")}catch(e){return ""}}
+function teamNextDay(id){if(!league||!league.schedule)return -1;const c=[];const k=nextRoundIdx();if(k>=0)c.push(k);
+  if(league.cup)league.cup.rounds.forEach((R,i)=>{if(league.cup.results[i])return;if(i===0||league.cup.results[i-1])try{ensureCupTies(i)}catch(e){}
+    if(!R.ties||R.ties.some(t=>t.includes(id))||(R.byes||[]).includes(id))c.push(R.day)});return c.length?Math.min(...c):-1}
+function myNextDay(){try{if(typeof state!=="undefined"&&state&&league&&league.mine&&league.mine.some(m=>m.id===state.id))return teamNextDay(state.id)}catch(e){}return nextDay()}
 function nextDay(){if(!league||!league.schedule)return -1;const c=[];const k=nextRoundIdx();if(k>=0)c.push(k);
   if(league.cup)league.cup.rounds.forEach((r,i)=>{if(!league.cup.results[i])c.push(r.day)});return c.length?Math.min(...c):-1}
 const CUP_NAMES=["Quarts de finale","Demi-finales","Finale"];
@@ -4140,7 +4145,7 @@ function renderMine(){const box=document.getElementById("mineCards");if(!box)ret
     const done=Object.keys(league.results).map(Number).sort((a,b)=>b-a);let last=null;for(const k of done){const m=league.results[k].find(m=>m.hId===id||m.aId===id);if(m){last={k,m};break}}
     if(last){const m=last.m,home=m.hId===id,my=home?m.hs:m.as,op=home?m.as:m.hs,res=my>op?"V":my<op?"D":"N";
       const row=el("div","mc-row");row.append(el("span","mc-lab","Dernier match"),el("i","res r"+res,res),el("span",null,`${my} – ${op} ${home?"contre":"à"} ${home?m.aName:m.hName}`));c.append(row)}
-    const nD=nextDay();if(nD>=0){const T0=lgTeam(id),outs=[...(T0.xi||[]),...(T0.bench||[])].filter(n=>n&&statusOf(n,nD));if(outs.length){const row=el("div","mc-row abs-row");row.append(el("span","mc-lab","Absents"),el("span",null,outs.map(n=>shortName(n)).join(", ")));c.append(row)}}
+    const nD=teamNextDay(id);if(nD>=0){const T0=lgTeam(id),outs=[...(T0.xi||[]),...(T0.bench||[])].filter(n=>n&&statusOf(n,nD));if(outs.length){const row=el("div","mc-row abs-row");row.append(el("span","mc-lab","Absents"),el("span",null,outs.map(n=>shortName(n)).join(", ")));c.append(row)}}
     {const fx=[];if(nextK>=0){const f=league.schedule[nextK].find(([h,a])=>h===id||a===id);if(f)fx.push({day:nextK,f,lab:`J${nextK+1}`})}
       if(league.cup)league.cup.rounds.forEach((R,i)=>{if(league.cup.results[i])return;ensureCupTies(i);const f=R.ties&&R.ties.find(([h,a])=>h===id||a===id);if(f)fx.push({day:R.day,f,lab:R.name==="Finale"?"Finale":R.name.startsWith("Demi")?"Demi":R.name.startsWith("Quart")?"Quart":"Barrage",cup:true})});
       fx.sort((a,b)=>a.day-b.day||(a.cup?1:0)-(b.cup?1:0)).slice(0,2).forEach(x=>{const home=x.f[0]===id,op=lgTeam(home?x.f[1]:x.f[0]);const d=x.cup?cupDate(x.day):roundDate(x.day);
@@ -4409,7 +4414,7 @@ document.getElementById("imgBtn").onclick=async e=>{
       const id=state.id,isLg=[...league.mine.map(m=>m.id),...league.ai.map(t=>t.id)].includes(id);
       const ab=document.getElementById("absBanner");
       if(!isLg||(ab&&!ab.hidden)){bar.hidden=true;return}
-      const k=nextDay();if(k<0){bar.hidden=true;return}
+      const k=teamNextDay(id);if(k<0){bar.hidden=true;return}
       const fx=[];
       if(league.schedule[k]&&!league.results[k])league.schedule[k].forEach(([h,a])=>{if(h===id)fx.push(["",`contre <b>${lgTeam(a).name}</b> (dom.)${oppInfo(a)}`]);if(a===id)fx.push(["",`à <b>${lgTeam(h).name}</b> (ext.)${oppInfo(h)}`])});
       if(league.cup)league.cup.rounds.forEach((R,i)=>{if(R.day!==k||league.cup.results[i])return;ensureCupTies(i);(R.ties||[]).forEach(([h,a])=>{if(h===id||a===id)fx.push(["cup",`Coupe · ${R.name} contre <b>${lgTeam(h===id?a:h).name}</b>${oppInfo(h===id?a:h)} à ${CUP_HOUR}h`])})});
@@ -4424,7 +4429,7 @@ document.getElementById("imgBtn").onclick=async e=>{
   function alerts(){
     const set=(id,on,title)=>{const e=document.getElementById(id);if(e){e.hidden=!on;if(title)e.title=title}};
     if(viewAI!=null||typeof state==="undefined"||!state){["dotBench","dotSet","teamDot","teamDot2"].forEach(i=>set(i,false));return}
-    const k=(typeof league!=="undefined"&&league&&league.schedule)?nextDay():-1;
+    const k=(typeof league!=="undefined"&&league&&league.schedule)?myNextDay():-1;
     const out=n=>!!(n&&k>=0&&statusOf(n,k));
     const xi=state.xi.filter(Boolean),subs=(state.bench||[]).filter(Boolean); // la réserve ne compte pas
     const xiOut=xi.filter(out),subOut=subs.filter(out);
@@ -5065,7 +5070,7 @@ select.btn{box-shadow:var(--well)}
     if(league.cup)for(let i=0;i<league.cup.rounds.length;i++){const R=league.cup.rounds[i];if(R.day!==k||league.cup.results[i])continue;try{ensureCupTies(i)}catch(e){}const f=(R.ties||[]).find(([h,a])=>h===id||a===id);if(f)return{home:f[0]===id,opp:f[0]===id?f[1]:f[0],lab:R.name,t:cupDate(k),cup:true}}return null}
   function row(lab,val,cls){const d=el("div","pre-row"+(cls?" "+cls:""));d.append(el("span","pre-l",lab));const v=el("div","pre-v");if(typeof val==="string")v.textContent=val;else v.append(val);d.append(v);return d}
   function renderPre(){const box=document.getElementById("preMatch");if(!box)return;box.replaceChildren();
-    try{const inLg=league&&league.mine&&league.mine.some(m=>m.id===state.id);const k=inLg?nextDay():-1;const F=k>=0?fixture(state.id,k):null;if(!F||viewAI!=null){box.hidden=true;return}box.hidden=false;
+    try{const inLg=league&&league.mine&&league.mine.some(m=>m.id===state.id);const k=inLg?teamNextDay(state.id):-1;const F=k>=0?fixture(state.id,k):null;if(!F||viewAI!=null){box.hidden=true;return}box.hidden=false;
       const when=F.t.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})+" à "+F.t.getHours()+"h";
       const hd=el("div","pre-h");hd.append(el("h2",null,"Avant le match"),el("span",null,`${F.lab}, ${when}`));box.append(hd);
       // affiche
