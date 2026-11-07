@@ -329,7 +329,12 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { ok: true });
       }
       if (id === "book") store.docs.book = mergeBook(store.docs.book, data, userOf(req));
-      else if (id === "league") store.docs.league = mergeLeague(store.docs.league, data);
+      else if (id === "league") {
+        const cur = store.docs.league, u = userOf(req);
+        // Nouvelle saison : réservée à l'admin
+        if (AUTH_ON && u !== "admin" && cur && cur.schedule && data && data.id !== cur.id) return send(res, 403, { error: "seul l'admin peut lancer une nouvelle saison" });
+        store.docs.league = mergeLeague(cur, data);
+      }
       else store.docs[id] = data;
       persist();
       if (id === "league" || id === "book") store.meta.nextAt = 0; // recalcul de la prochaine journée

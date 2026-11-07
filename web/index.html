@@ -4427,7 +4427,7 @@ function renderLeague(){
   renderMine();renderAIGrid();updateDot();if(!document.getElementById("view-championnat").hidden)markSeen();
   const st=standings();
   if(!CUPMODE&&seasonDone()){const ch=el("div","champ");ch.append(el("span",null,"Champion"),el("b",null,st[0].name));
-    const nb=el("button","btn primary","Nouvelle saison");nb.onclick=e=>{const b=e.currentTarget;if(!b.dataset.armed){b.dataset.armed=1;b.textContent="Confirmer ? Nouvelles équipes IA";return}createLeague();lgRound=null;runLeague()};ch.append(nb);box.append(ch)}
+    if(window.ME==="admin"){const nb=el("button","btn primary","Nouvelle saison");nb.onclick=e=>{const b=e.currentTarget;if(!b.dataset.armed){b.dataset.armed=1;b.textContent="Confirmer ? Nouvelles équipes IA";return}createLeague();lgRound=null;runLeague()};ch.append(nb)}else ch.append(el("small","champ-wait","La prochaine saison sera lancée par l'admin."));box.append(ch)}
   try{renderUne(box)}catch(e){}
   const TABS=CUPMODE?[["cup","Tableau"],["g","Buteurs"],["a","Passeurs"],["cs","Clean sheets"],["motm","Hommes du match"],["rt","Notes"]]
     :[["table","Classement"],["rounds","Journées"],["bdo","Ballon d'Or"],["g","Buteurs"],["a","Passeurs"],["cs","Clean sheets"],["motm","Hommes du match"],["rt","Notes"],["abs","Absents"],["hist","Palmarès"],["rec","Records"]];
