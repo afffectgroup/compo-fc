@@ -3688,14 +3688,15 @@ function render(){
 }
 
 const U20=p=>!!p&&p.age>0&&p.age<20;
-function resClosed(t){if(typeof league==="undefined"||!league||!league.roster||!t||!league.roster[t.id])return false;
+function resClosed(t){if(typeof league==="undefined"||!league||!league.roster||!t||!league.roster[t.id])return false;if(seasonDone())return false;
   league.resFull=league.resFull||{};
   if(league.resFull[t.id]==null&&resvOf(t).length>=3){const k=nextDay();if(k<0)return false;league.resFull[t.id]=k;saveLeague()}
   const k=league.resFull[t.id];return k!=null&&new Date()>=roundDate(k)}
 function resvOf(t){if(!t)return [];const all=new Set([...(t.xi||[]),...(t.bench||[]),...(t.res||[])].filter(Boolean));
   if(!Array.isArray(t.resv))t.resv=(t.res||[]).filter(n=>n&&U20(BY[n]));t.resv=t.resv.filter(n=>all.has(n)).slice(0,3);return t.resv}
 function snapRoster(){league.roster={};league.mine.forEach(m=>{const t=book.teams.find(x=>x.id===m.id);if(t)league.roster[m.id]=[...t.xi,...t.bench,...(t.res||[])].filter(Boolean)})}
-function lockedRoster(){if(typeof league==="undefined"||!league||!league.roster||!state)return null;return league.roster[state.id]||null}
+function lockedRoster(){if(typeof league==="undefined"||!league||!league.roster||!state)return null;if(seasonDone())return null; // intersaison : mercato ouvert
+return league.roster[state.id]||null}
 function used(){return new Set([...state.xi,...state.bench,...(state.res||[])].filter(Boolean))}
 function otherTeamsWith(name){return book.teams.filter((t,i)=>i!==book.cur&&(t.xi.includes(name)||t.bench.includes(name)||(t.res||[]).includes(name)))}
 let pending=null;
