@@ -92,6 +92,7 @@ function mergeBook(cur, inc, user) {
   lastConflicts = [];
   if (!cur || !Array.isArray(cur.teams)) return { teams: inc.teams || [], cur: inc.cur || 0 };
   const byId = new Map(cur.teams.map(t => [t.id, t]));
+  const byIdAll = new Set(cur.teams.map(t => t.id));
   const mayEdit = t => !AUTH_ON || user === "admin" || !t || !t.owner || t.owner === user;
   const deleted = new Set((inc.deleted || []).filter(id => mayEdit(byId.get(id))));
   const order = [];
@@ -106,6 +107,8 @@ function mergeBook(cur, inc, user) {
     byId.delete(t.id);
   }
   for (const [id, t] of byId) if (!deleted.has(id)) order.push(t); // équipe ajoutée ailleurs entre-temps
+  // 2 équipes maximum par joueur
+  if (user && user !== "admin") { let n = 0; for (let i = 0; i < order.length; i++) if (order[i].owner === user && ++n > 2 && !byIdAll.has(order[i].id)) { order.splice(i, 1); i--; } }
   return { teams: order, cur: inc.cur || 0, updated: Date.now() };
 }
 function mergeLeague(cur, inc) {
@@ -209,7 +212,7 @@ async function checkReminders() {
       if (!owner || !key) continue;
       const rk = e.kind + e.t + "|" + owner;
       if (store.meta.reminded.includes(rk) || seenBy(owner, key, L.id)) continue;
-      late.push(owner); store.meta.reminded.push(rk);
+      if (!late.includes(owner)) late.push(owner); store.meta.reminded.push(rk);
     }
     if (!late.length) continue;
     persist();

@@ -57,7 +57,11 @@ const REPORT_JS = String.raw`
     return out;
   }
   // Une ligne par équipe de la famille : « ✅ Victoire de Julien (2-1) contre Équipe IA 5 »
-  const first=n=>String(n||"").split(" ")[0];
+  const fw=n=>String(n||"").split(" ")[0];
+  const ownerId=id=>{const m=league.mine.find(x=>x.id===id);return (m&&m.owner)||(m&&fw(m.name))||id};
+  const sameOwner=(a,b)=>ownerId(a)===ownerId(b);
+  // Prénom seul, sauf si deux de nos équipes commencent pareil (2 équipes du même frère) : nom complet
+  const first=n=>{const f=fw(n);return league.mine.filter(m=>fw(lgTeam(m.id).name)===f).length>1?String(n||""):f};
   function teamLine(m,id){
     const home=m.hId===id,my=home?m.hs:m.as,op=home?m.as:m.hs,opName=home?m.aName:m.hName,me=first(home?m.hName:m.aName);
     let win=my>op?1:my<op?-1:0;
@@ -86,6 +90,7 @@ const REPORT_JS = String.raw`
       // Derby
       if(mineIds.has(oppId)){if(!home)return;
         const a=first(nm(m.hId)),b=first(nm(m.aId)),w=res>0?a:b,l=res>0?b:a;
+        if(sameOwner(m.hId,m.aId)){const o=ownerId(m.hId);if(m.hs===m.as&&!m.win)add(100,["Match nul entre les deux équipes de "+o,o+" ne se départage pas"]);else add(105,[w+" prend le dessus sur "+l,"Duel interne chez "+o+" : "+w+" l'emporte"]);return}
         if(m.hs===m.as&&!m.win)add(100,["Partage des points chez les Déniel","Derby sans vainqueur, l'honneur est sauf","Statu quo dans la famille"]);
         else if(Math.abs(m.hs-m.as)>=3)add(110,[w+" écrase "+l+" dans le derby",w+" corrige son frère",l+" humilié par "+w]);
         else add(105,[w+" s'offre le derby",w+" règne sur la famille",l+" s'incline face à son frère"]);
@@ -214,12 +219,14 @@ const REPORT_JS = String.raw`
     const Q=[];const q=(p,who,arr,opp)=>{const ok=arr.filter(t=>!avoid.has(t));const A=ok.length?ok:arr;Q.push({p,who,opp,t:pickV(A,league.id+key+who+p)})};
     const ids=league.mine.map(m=>m.id),nL=league.schedule.length,BK=typeof breakK==="function"?breakK():-1;
     const dm=ms.find(m=>mineIds.has(m.hId)&&mineIds.has(m.aId));
-    if(dm){const a=first(nm(dm.hId)),b=first(nm(dm.aId)),ra=row(dm.hId),rb=row(dm.aId);
+    if(dm&&sameOwner(dm.hId,dm.aId)){const a=first(nm(dm.hId)),b=first(nm(dm.aId)),o=ownerId(dm.hId);
+      q(150,"*",["Duel interne chez "+o+" : "+a+" ou "+b+" ?",o+" contre "+o+" : laquelle de ses équipes a gagné ?","Qui de "+a+" ou "+b+" a eu le dernier mot ?"])}
+    if(dm&&!sameOwner(dm.hId,dm.aId)){const a=first(nm(dm.hId)),b=first(nm(dm.aId)),ra=row(dm.hId),rb=row(dm.aId);
       const L=cupRound?["Derby en coupe : qui de "+a+" ou "+b+" a sorti son frère ?","Un seul Déniel passe : "+a+" ou "+b+" ?","Qui a éliminé l'autre en coupe, "+a+" ou "+b+" ?","Le derby de coupe a parlé : "+a+" ou "+b+" ?"]
         :["Derby chez les Déniel : qui de "+a+" ou "+b+" a pris le dessus ?","Le derby a rendu son verdict : "+a+" ou "+b+" ?","Qui a gagné le droit de chambrer : "+a+" ou "+b+" ?","Qui sera insupportable au prochain repas de famille, "+a+" ou "+b+" ?","Duel fratricide : "+a+" ou "+b+" ?","Qui a la suprématie familiale ce soir, "+a+" ou "+b+" ?","Le derby a-t-il tourné à l'humiliation pour l'un des deux frères ?"];
       if(!cupRound&&ra.j>=2&&Math.abs(ra.pts-rb.pts)<=3)L.push("Derby au sommet de la rivalité ("+ra.pts+" pts contre "+rb.pts+") : qui est passé devant ?");
       q(200,"*",L)}
-    else ids.forEach(id=>{const m=ms.find(x=>x.hId===id||x.aId===id);if(!m)return;
+    ids.forEach(id=>{const m=ms.find(x=>x.hId===id||x.aId===id);if(!m||(dm&&(m===dm)))return;
       const me=first(nm(id)),home=m.hId===id,oppId=home?m.aId:m.hId,opp=nm(oppId),R=row(id),RO=row(oppId),f=R.form,p=pos(id),po=pos(oppId),n=st.length,j=R.j;
       const gap=ovrOf(oppId)-ovrOf(id);
       if(cupRound){const last=cupRound.name==="Finale",nxt={"Barrages":"en quarts","Quarts de finale":"en demies","Demi-finales":"en finale"}[cupRound.name]||"au tour suivant";
@@ -269,7 +276,7 @@ const REPORT_JS = String.raw`
         q(72,"*",[behind+" a-t-il doublé "+ahead+" au classement ?","Le classement a-t-il changé de mains chez les Déniel ? "+behind+" est-il passé devant "+ahead+" ?",ahead+" est-il toujours devant "+behind+" au classement ?","Bataille familiale au classement : "+behind+" a-t-il grillé la politesse à "+ahead+" ?"])}
       else if(ax.j>=4&&Math.abs(ax.pts-ay.pts)>=9){const lo=first(nm(ax.pts<ay.pts?x:y)),hi=first(nm(ax.pts<ay.pts?y:x));q(50,"*",[lo+" a-t-il grignoté son retard sur "+hi+" ?","L'écart entre "+hi+" et "+lo+" s'est-il encore creusé ?"])}}
     if(!Q.length)return "";
-    Q.sort((a,b)=>b.p-a.p);const out=[Q[0]];if(Q[0].who!=="*"){const other=Q.find(x=>x.who!==Q[0].who&&x.who!=="*");if(other)out.push(other)}
+    Q.sort((a,b)=>b.p-a.p);const out=[Q[0]];{const other=Q.find(x=>x.who!==Q[0].who&&x.who!=="*");if(other)out.push(other)}
     const strip=x=>x.t.split(x.who).join("§");
     if(out.length===2&&strip(out[0])===strip(out[1]))return out[0].t+" Et "+out[1].who+" ?";
     if(out.length===2&&out[1].p===10){const [op,ha]=(out[1].opp||"").split("|");out[1].t=pickV(ha==="h"?["Et "+out[1].who+", face à "+op+" ?","Et "+out[1].who+" à domicile contre "+op+" ?","Pendant ce temps, "+out[1].who+" a-t-il battu "+op+" ?"]:["Et "+out[1].who+", chez "+op+" ?","Et "+out[1].who+" en déplacement chez "+op+" ?","Pendant ce temps, "+out[1].who+" a-t-il gagné chez "+op+" ?"],league.id+key+"x")}

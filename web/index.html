@@ -558,6 +558,8 @@ body.view-ai .team-name{pointer-events:none}
 /* Pas de gestion d'équipes : ni création, ni suppression, ni renommage, ni export */
 #newTeam,#delTeam,#imgBtn,#dupTeam,.name-wrap .pen{display:none!important}
 #teamName{pointer-events:none}
+body.can-new #newTeam{display:inline-flex!important}body.can-edit #delTeam{display:inline-flex!important}
+body.can-edit #teamName{pointer-events:auto}body.can-edit .name-wrap .pen{display:block!important}
 .teams.solo{display:none}
 .mc-name:disabled{cursor:default;opacity:1;color:inherit}
 #imgBtn[hidden]{display:none}
@@ -3859,7 +3861,7 @@ const _sv=document.getElementById("saveBtn"); if(_sv)_sv.onclick=()=>{
   pushBook().then(ok=>toast(ok?`« ${state.name} » enregistrée sur ton compte à ${h}`:"Synchro impossible, réessaie dans un instant"));
 };
 const _cbb=document.getElementById("clearBench"); if(_cbb)_cbb.onclick=()=>{if(!state.bench.some(Boolean))return;state.bench=Array(7).fill(null);render();toast("Banc vidé")};
-document.getElementById("newTeam").onclick=()=>{book.teams.push(blankTeam(`Équipe ${book.teams.length+1}`));switchTeam(book.teams.length-1);const n=document.getElementById("teamName");n.focus();n.select();toast("Équipe créée, donne-lui un nom")};
+document.getElementById("newTeam").onclick=()=>{const nt=blankTeam(`Équipe ${book.teams.length+1}`);if(window.ME&&window.ME!=="admin")nt.owner=window.ME;nt.res=[null,null,null];nt.id="t"+Math.random().toString(36).slice(2,10);nt.ts=Date.now();book.teams.push(nt);switchTeam(book.teams.length-1);const n=document.getElementById("teamName");n.focus();n.select();toast("Équipe créée, donne-lui un nom")};
 const _dup=document.getElementById("dupTeam"); if(_dup)_dup.onclick=()=>{const c=structuredClone(state);c.id="t"+Math.random().toString(36).slice(2,10);c.name=state.name+" (copie)";book.teams.splice(book.cur+1,0,c);switchTeam(book.cur+1);toast("Équipe dupliquée")};
 document.getElementById("delTeam").onclick=e=>{
   const b=e.currentTarget; if(book.teams.length<2)return;
@@ -4192,11 +4194,11 @@ var league=load(LKEY), viewAI=null, lgTab="table", lgRound=null, lgOpen=null, le
 function saveLeague(){try{localStorage.setItem(LKEY,JSON.stringify(league))}catch(e){}
   if(cloud&&league)cloud.col.doc("league").set(JSON.parse(JSON.stringify(league))).catch(()=>{})}
 function shuffleSeeded(a,r){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
-function buildAITeams(seed){
+function buildAITeams(seed,n){n=n||8;
   const r=rngOf(hstr("ai|"+seed)),taken=new Set();
   book.teams.forEach(t=>[...t.xi,...t.bench].forEach(n=>n&&taken.add(n)));
   const pool=PLAYERS.filter(p=>!taken.has(p.name)&&!p.icon).sort((a,b)=>b.ovr-a.ovr||a.name.localeCompare(b.name));
-  const TK=Object.keys(TACTICS),used=new Set(),teams=shuffleSeeded(AI_FORMS,r).map((f,i)=>({id:"ai"+(i+1),ai:true,name:"IA "+(i+1),formation:f,tactic:TK[Math.floor(r()*TK.length)],xi:Array(11).fill(null),bench:Array(7).fill(null),captain:null,takers:{}}));
+  const TK=Object.keys(TACTICS),used=new Set(),teams=shuffleSeeded(AI_FORMS,r).slice(0,n).map((f,i)=>({id:"ai"+(i+1),ai:true,name:"IA "+(i+1),formation:f,tactic:TK[Math.floor(r()*TK.length)],xi:Array(11).fill(null),bench:Array(7).fill(null),captain:null,takers:{}}));
   const take=pred=>{const p=pool.find(p=>!used.has(p.name)&&pred(p));if(p)used.add(p.name);return p?p.name:null};
   // titulaires : draft en serpentin, poste par poste (GK d'abord)
   const order=[...Array(11).keys()].sort((x,y)=>(x===0?-1:y===0?1:0));
@@ -4305,10 +4307,13 @@ function fixNames(){try{if(!league||!league.ai)return;const f=s=>typeof s==="str
 function fixFinal(){try{const C=league&&league.cup;if(!C||!league.schedule)return;const k=C.rounds.length-1,last=league.schedule.length-1;if(!C.results[k]&&C.rounds[k].day===last+14)C.rounds[k].day=last+2}catch(e){}}
 function cupWinnerId(m){return m.win?(m.win==="h"?m.hId:m.aId):(m.hs>m.as?m.hId:m.aId)}
 // Les deux frères dans des moitiés opposées du tableau : ils ne peuvent se croiser qu'en finale
-function splitMine(arr){const a=[...arr],half=a.length/2,mine=league.mine.map(m=>m.id),pos=mine.map(id=>a.indexOf(id)).filter(x=>x>=0);
-  if(a.length<4||pos.length<2)return a;const[p,q]=pos;if((p<half)!==(q<half))return a;
-  const targets=[];for(let k=(q<half?half:0);k<(q<half?a.length:half);k++)if(!mine.includes(a[k]))targets.push(k);if(!targets.length)return a;
-  const t=targets[0];[a[q],a[t]]=[a[t],a[q]];return a}
+function ownerOf(id){const m=league&&league.mine&&league.mine.find(x=>x.id===id);if(m&&m.owner)return m.owner;const t=book.teams.find(x=>x.id===id);return (t&&t.owner)||(m&&m.name)||id}
+// Équipes de chaque frère dans des moitiés opposées : les deux frères ne peuvent se croiser qu'en finale
+function splitMine(arr){const a=[...arr],half=a.length/2,mine=league.mine.map(m=>m.id);if(a.length<4)return a;
+  const owners=[...new Set(mine.map(ownerOf))].sort();if(owners.length<2)return a;const want=id=>owners.indexOf(ownerOf(id))%2; // 0 = haut, 1 = bas
+  for(let k=0;k<a.length;k++){const id=a[k];if(!mine.includes(id))continue;const side=k<half?0:1;if(side===want(id))continue;
+    const lo=want(id)===0?0:half,hi=want(id)===0?half:a.length;let t=-1;for(let j=lo;j<hi;j++)if(!mine.includes(a[j])||want(a[j])!==want(id)){if(!mine.includes(a[j])){t=j;break}}
+    if(t>=0)[a[k],a[t]]=[a[t],a[k]]}return a}
 function ensureCupTies(i){const R=league.cup.rounds[i];if(R.ties||i===0)return;const prev=league.cup.results[i-1];if(!prev)return;let w=prev.map(cupWinnerId);if(R.byes)w=splitMine(shuffleSeeded([...R.byes,...w],rngOf(hstr("cup|"+league.id+"|"+i))));R.ties=[];for(let j=0;j+1<w.length;j+=2)R.ties.push([w[j],w[j+1]])}
 const cupLast=()=>league.cup.rounds.length-1;
 function seasonDone(){return league&&Object.keys(league.results).length===league.schedule.length&&(!league.cup||!!league.cup.results[cupLast()])}
@@ -4366,13 +4371,13 @@ function renderRecords(box){const cur=seasonRecords();if(!cur){box.append(el("p"
 function createLeague(){
   ensureIds();const now=new Date(),ev=new Date();ev.setHours(ROUND_HOUR,0,0,0);
   const st=new Date();if(now>=ev)st.setDate(st.getDate()+1);
-  const mine=[matches.home,matches.away].map(id=>book.teams.find(t=>t.id===id)).filter(Boolean);
-  book.teams.forEach(t=>{if(mine.length<2&&!mine.includes(t))mine.push(t)});
-  const seed=Date.now().toString(36),r=rngOf(hstr("sch|"+seed)),ai=buildAITeams(seed);
-  const ids=[...mine.slice(0,2).map(t=>t.id),...ai.map(t=>t.id)];
+  let mine=[];const ow={};book.teams.filter(t=>t.owner&&t.owner!=="admin").sort((a,b)=>a.owner.localeCompare(b.owner)).forEach(t=>{ow[t.owner]=(ow[t.owner]||0)+1;if(ow[t.owner]<=2&&mine.length<4)mine.push(t)});
+  if(mine.length<2){mine=[matches.home,matches.away].map(id=>book.teams.find(t=>t.id===id)).filter(Boolean);book.teams.forEach(t=>{if(mine.length<2&&!mine.includes(t))mine.push(t)})}
+  const seed=Date.now().toString(36),r=rngOf(hstr("sch|"+seed)),ai=buildAITeams(seed,10-mine.length);
+  const ids=[...mine.map(t=>t.id),...ai.map(t=>t.id)];
   let history=(league&&league.history)||[],prog0={};
   if(league&&league.schedule){refreshAbs();prog0={...DER.prog};if(seasonDone()&&!history.some(x=>x.season===league.season))history=[...history,awards()]}
-  league={id:seed,season:(league?.season||0)+1,start:dstr(st),mine:mine.slice(0,2).map(t=>({id:t.id,name:t.name})),ai,schedule:buildSchedule(ids,r),results:{},history,prog0,ver:LEAGUE_VER};
+  league={id:seed,season:(league?.season||0)+1,start:dstr(st),mine:mine.map(t=>({id:t.id,name:t.name,owner:t.owner||null})),ai,schedule:buildSchedule(ids,r),results:{},history,prog0,ver:LEAGUE_VER};
   initCup();snapRoster();saveLeague();
 }
 function lgTeam(id){if(id.startsWith("ai"))return league.ai.find(t=>t.id===id);return book.teams.find(t=>t.id===id)||{id,name:league.mine.find(m=>m.id===id)?.name||"Équipe",formation:"4-3-3",xi:[],bench:[],takers:{}}}
@@ -5014,7 +5019,8 @@ document.getElementById("imgBtn").onclick=async e=>{
   const get=()=>{try{const v=JSON.parse(localStorage.getItem(KEY())||"null");return Array.isArray(v)?v:null}catch(e){return null}};
   const set=a=>{try{localStorage.setItem(KEY(),JSON.stringify(a.slice(-200)))}catch(e){}};
   let busy=false;
-  function myId(){const t=book&&book.teams&&book.teams.find(t=>t.owner===window.ME);return t&&league.mine&&league.mine.some(m=>m.id===t.id)?t.id:null}
+  function myIds(){return (book&&book.teams||[]).filter(t=>t.owner===window.ME&&league.mine&&league.mine.some(m=>m.id===t.id)).map(t=>t.id)}
+  function myId(){return myIds()[0]||null}
   function events(id){const ev=[];
     Object.entries(league.results||{}).forEach(([k,ms])=>{const m=(ms||[]).find(x=>x.hId===id||x.aId===id);if(m)ev.push({key:"L"+k,t:roundDate(+k).getTime(),m,lab:`Journée ${+k+1}, ${slotHour(+k)}h`,k:+k})});
     if(league.cup)Object.entries(league.cup.results||{}).forEach(([i,ms])=>{const m=(ms||[]).find(x=>x.hId===id||x.aId===id);const R=league.cup.rounds[i];if(m&&R)ev.push({key:"C"+i,t:cupDate(R.day).getTime(),m,lab:`Coupe, ${R.name.toLowerCase()}`,cup:true,last:+i===league.cup.rounds.length-1})});
@@ -5026,11 +5032,12 @@ document.getElementById("imgBtn").onclick=async e=>{
   function save(keys){set(keys);srvSeen=keys;try{fetch("/api/docs/"+encodeURIComponent(SID()),{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({lg:league.id,keys:keys.slice(-300)})}).catch(()=>{})}catch(e){}}
   async function check(){if(busy||!league||!league.results||document.querySelector(".overlay:not([hidden])"))return;const id=myId();if(!id)return;
     busy=true;try{await loadSrv()}catch(e){}busy=false;if(document.querySelector(".overlay:not([hidden])"))return;
-    const ev=events(id),loc=get(),srv=Array.isArray(srvSeen)?srvSeen:null;
+    const ids=myIds(),ev=[];ids.forEach((x,n)=>events(x).forEach(e=>{if(e.bdo&&n>0)return;ev.push({...e,tid:x})}));ev.sort((a,b)=>a.t-b.t||ids.indexOf(a.tid)-ids.indexOf(b.tid));
+    const loc=get(),srv=Array.isArray(srvSeen)?srvSeen:null;
     if(!loc&&!srv){const cut=Math.min(Date.now()-3*36e5,Date.parse("2026-11-01T00:00:00+01:00"));save(ev.filter(e=>e.t<cut).map(e=>e.key));return check()} // tout premier lancement : seuls les matchs d'avant la mise en service (ou vieux de 3 h) sont considérés comme vus
     const seen=[...new Set([...(loc||[]),...(srv||[])])];const fresh=ev.filter(e=>!seen.includes(e.key));
     if(!fresh.length){if(!loc||!srv||loc.length!==seen.length)set(seen);return}
-    busy=true;save([...seen,...fresh.map(e=>e.key)]); // marqué vu dès l'ouverture : ne revient pas même si l'app est fermée en cours
+    busy=true;save([...new Set([...seen,...fresh.map(e=>e.key)])]); // marqué vu dès l'ouverture : ne revient pas même si l'app est fermée en cours
     show(fresh,id,()=>{busy=false})}
   // ---- Bruitages (synthétisés) : sifflets, ambiance, buts, cœur qui bat, fanfare / trombone triste
   const SK="compo-fc-rv-sound",sOn=()=>{try{return localStorage.getItem(SK)!=="0"}catch(e){return true}};let AC=null,NB=null,bus=null,amb=null;
@@ -5056,7 +5063,7 @@ document.getElementById("imgBtn").onclick=async e=>{
     draw(){tone(587.3,.3,"triangle",.09);tone(587.3,.45,"triangle",.09,.32)},
     pop(){nz(.18,"highpass",1200+Math.random()*1500,.6,.16,.003,.15);nz(.6,"bandpass",3000,1,.05,.02,.5,1500,.05)},
     stop(){SFX.ambience(false)}};
-  function show(list,id,done){
+  function show(list,id0,done){let id=id0;
     const reduceStart=()=>window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
     const reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
     const ov=el("div","overlay rv");const card=el("div","rv-card");ov.append(card);document.body.append(ov);
@@ -5067,12 +5074,12 @@ document.getElementById("imgBtn").onclick=async e=>{
     let idx=0;
     const sb0=el("button","rv-snd");sb0.type="button";const paintS=()=>{const on=sOn();sb0.innerHTML=on?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9l5 6M22 9l-5 6" fill="none"/></svg>';sb0.setAttribute("aria-label",on?"Couper le son":"Activer le son")};paintS();
     sb0.onclick=e=>{e.stopPropagation();try{localStorage.setItem(SK,sOn()?"0":"1")}catch(_){}paintS();if(sOn()){ac();if(!card.classList.contains("is-win")&&!card.classList.contains("is-loss")&&!card.classList.contains("is-draw"))SFX.ambience(true)}else SFX.stop()};
-    function intro(){const E=list[idx];card.replaceChildren();card.className="rv-card rv-intro";card.append(sb0,el("div","rv-lab",E.lab+(list.length>1?` (${list.length} matchs)`:"")));
+    function intro(){const E=list[idx];id=E.tid||id0;card.replaceChildren();card.className="rv-card rv-intro";card.append(sb0,el("div","rv-lab",E.lab+(list.length>1?` (${list.length} matchs)`:"")));
       if(E.bdo){card.append(el("div","rv-big","La cérémonie"),el("p","rv-sub","La saison est terminée. Qui succède au palmarès ?"));const go=el("button","btn primary rv-go","Découvrir le Ballon d'Or");go.type="button";go.onclick=()=>{ac();play()};card.append(go);setTimeout(()=>go.focus(),30);return}
       const h3=el("div","rv-big","Match terminé");const sub=el("p","rv-sub",`${nm(E.m.hId)} – ${nm(E.m.aId)}`);const go=el("button","btn primary rv-go","Découvrir le résultat");go.type="button";
       go.onclick=()=>{ac();play()};card.append(h3,sub,go);setTimeout(()=>go.focus(),30)}
     function play(){timers.forEach(clearTimeout);timers=[];cancelAnimationFrame(fxRaf);if(play.stop)play.stop();const c=cv.getContext("2d");c.clearRect(0,0,cv.width,cv.height);ov.classList.remove("sad");
-      const E=list[idx],m=E.m,home=m.hId===id;card.replaceChildren();card.className="rv-card";card.append(sb0);SFX.stop();
+      const E=list[idx];id=E.tid||id0;const m=E.m,home=m.hId===id;card.replaceChildren();card.className="rv-card";card.append(sb0);SFX.stop();
       if(E.bdo){card.classList.add("rv-bdo");card.append(el("div","rv-lab",E.lab));const T=bdoTable().slice(0,3);const pod=el("div","bdo-podium rv-pod");card.append(pod);const foot=el("div","rv-foot");
         [1,0,2].forEach(i=>{const x=T[i];if(!x)return;const w=el("div","bdo-p r"+(i+1)+(x.team===id?" mine":""));w.style.animationDelay=(i===2?.5:i===1?1.6:2.9)+"s";w.append(el("b","bdo-rk",i===0?"1er":(i+1)+"e"),cardFor(BY[x.n],"SUB"),el("span","bdo-n",shortName(x.n)),el("span","bdo-pts",`${lgTeam(x.team).name.replace(/^Équipe /,"")} · ${x.pts.toLocaleString("fr-FR")} pts`));pod.append(w)});
         timers.push(setTimeout(()=>{const W=T[0];if(!W)return;const mine=W.team===id;card.insertBefore(el("div","rv-res win",""),foot).append(el("span",null,shortName(W.n)));card.insertBefore(el("p","rv-motm",mine?"Ton joueur est Ballon d'Or ! Il aura une carte spéciale la saison prochaine.":`Ballon d'Or pour ${nm(W.team)}.`),foot);
@@ -5098,9 +5105,9 @@ document.getElementById("imgBtn").onclick=async e=>{
         let txt=res>0?"Victoire":res<0?"Défaite":"Match nul";if(E.cup)txt=res>0?(E.last?"Vainqueur de la coupe !":"Qualifié !"):"Éliminé";
         const after=[];if(m.pens)after.push(el("div","rv-pens",`Tirs au but ${m.pens.h}-${m.pens.a}`));
         const rb=el("div","rv-res "+(res>0?"win":res<0?"loss":"draw"));rb.append(el("span",null,txt));after.push(rb);
-        const other=(league.mine||[]).map(x=>x.id).find(x=>x!==id);if(other){const src=E.cup?(league.cup.results[E.key.slice(1)]||[]):(league.results[E.k]||[]);const o=src.find(x=>x.hId===other||x.aId===other);
+        {const src=E.cup?(league.cup.results[E.key.slice(1)]||[]):(league.results[E.k]||[]);(league.mine||[]).map(x=>x.id).filter(x=>x!==id).forEach(other=>{const o=src.find(x=>x.hId===other||x.aId===other);
           if(o&&!(o.hId===id||o.aId===id)){const oh=o.hId===other,om=oh?o.hs:o.as,oo=oh?o.as:o.hs;let r2=om>oo?1:om<oo?-1:0;if(!r2&&o.win)r2=(o.win==="h")===oh?1:-1;
-            const pp=el("p","rv-other "+(r2>0?"w":r2<0?"l":"d"));pp.append(el("b",null,nm(other).split(" ")[0]),document.createTextNode(` · ${r2>0?"victoire":r2<0?"défaite":"nul"} ${o.hs}-${o.as} ${oh?"contre":"à"} ${nm(oh?o.aId:o.hId)}`));after.push(pp)}}
+            const pp=el("p","rv-other "+(r2>0?"w":r2<0?"l":"d"));pp.append(el("b",null,nm(other)),document.createTextNode(` · ${r2>0?"victoire":r2<0?"défaite":"nul"} ${o.hs}-${o.as} ${oh?"contre":"à"} ${nm(oh?o.aId:o.hId)}`));after.push(pp)}})}
         if(!E.cup&&E.k!=null&&typeof hdjOf==="function"){const hj=hdjOf(E.k);if(hj){const mine=hj.team===id;const hp=el("p","rv-hdj"+(mine?" mine":""));hp.append(el("i",null,"HDJ"),document.createTextNode(" Homme de la journée : "),el("b",null,hj.n),document.createTextNode(` (${hj.r.toFixed(1)}, ${nm(hj.team)})${mine?" · +1 au prochain match":""}`));after.push(hp)}}
         if(m.motm){const mm=el("p","rv-motm");mm.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z"/></svg>';mm.append(document.createTextNode(` Homme du match : ${m.motm}`));after.push(mm)}
         after.forEach((x,i)=>{x.style.animationDelay=(anim?.1+i*.12:0)+"s";x.classList.add("rv-up");card.insertBefore(x,foot)});
@@ -5210,6 +5217,18 @@ document.getElementById("imgBtn").onclick=async e=>{
         const k=state.ci;state.compos.splice(k,1);state.ci=0;const c=state.compos[0];F.forEach(k2=>{if(c[k2]!=null)state[k2]=JSON.parse(JSON.stringify(c[k2]))});save();render();toast("Compo supprimée")};row.append(d)}
     box.append(row);if(state.compos.length>1)box.append(el("p","cp-note","La compo surlignée est celle qui joue les matchs. Touche une autre compo pour la faire jouer, touche la compo active pour la renommer."))}
   const _r=render;render=function(){try{if(typeof state!=="undefined"&&state&&viewAI==null&&!RO()&&sync(state)&&typeof save==="function"){}}catch(e){}_r.apply(this,arguments);try{bar()}catch(e){}};
+})();
+</script>
+<script>
+/* ---- Deux équipes par joueur : création, renommage et suppression pendant l'intersaison ---- */
+(function(){
+  const open=()=>typeof league==="undefined"||!league||!league.schedule||seasonDone();
+  const mineCount=()=>book.teams.filter(t=>t.owner===window.ME).length;
+  const _r=render;render=function(){_r.apply(this,arguments);try{const me=window.ME&&window.ME!=="admin";const own=state&&state.owner===window.ME;
+    document.body.classList.toggle("can-new",!!(me&&open()&&mineCount()<2&&viewAI==null));
+    document.body.classList.toggle("can-edit",!!(me&&open()&&own&&mineCount()>1&&viewAI==null));
+    {const tn=document.getElementById("teamName");if(tn)tn.readOnly=!document.body.classList.contains("can-edit")}
+    const nav=document.querySelector("#view-equipe .teams");if(nav&&me&&open())nav.classList.remove("solo")}catch(e){}};
 })();
 </script>
 </body>
