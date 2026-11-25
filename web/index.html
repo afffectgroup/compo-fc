@@ -996,7 +996,7 @@ aside{grid-template-columns:minmax(0,1fr)}aside>.box{min-width:0}
           </div>
         </div>
         <div class="bench" id="bench"></div>
-        <div id="resWrap"><div class="res-top"><p class="res-h"><b>Réserve</b><span> · 3 joueurs de moins de 20 ans</span></p><button type="button" class="btn small watch-btn" id="watchBtn" aria-expanded="false"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>À surveiller</span><b id="watchN"></b></button></div><div class="bench" id="reserve"></div><div id="watchWrap" hidden><p class="res-h"><b>Joueurs à surveiller</b><span> · pour toi seulement, ils ne jouent pas</span></p><div class="bench watch" id="watch"></div></div></div>
+        <div id="resWrap"><div class="res-top"><p class="res-h"><b>Réserve</b><span> · 3 joueurs</span></p><button type="button" class="btn small watch-btn" id="watchBtn" aria-expanded="false"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>À surveiller</span><b id="watchN"></b></button></div><div class="bench" id="reserve"></div><div id="watchWrap" hidden><p class="res-h"><b>Joueurs à surveiller</b><span> · pour toi seulement, ils ne jouent pas</span></p><div class="bench watch" id="watch"></div></div></div>
         <div class="setp" id="setp" hidden></div>
       </section>
       <section class="box pre" id="preMatch" hidden></section>
@@ -3670,7 +3670,7 @@ function render(){
   if(!Array.isArray(state.res))state.res=[null,null,null];while(state.res.length<3)state.res.push(null);
   const resBox=document.getElementById("reserve");resBox.replaceChildren();
   {const rh=document.querySelector("#resWrap .res-h span");if(rh){const lk=resClosed(state),n=resvOf(state).length,k=league&&league.resFull&&league.resFull[state.id];
-    rh.textContent=lk?" · verrouillée jusqu'à la fin de la saison":n>=3&&k!=null?` · 3/3, modifiable jusqu'à ${fmtDate(dstr(roundDate(k)))} ${slotHour(k)}h, puis verrouillée`:` · ${n}/3 joueurs de moins de 20 ans`}}
+    rh.textContent=lk?" · verrouillée jusqu'à la fin de la saison":n>=3&&k!=null&&!seasonDone()?` · 3/3, modifiable jusqu'à ${fmtDate(dstr(roundDate(k)))} ${slotHour(k)}h, puis verrouillée`:` · ${n}/3 joueurs`}}
   for(let i=0;i<3;i++){const s=slotBtn(state.res[i],"SUB","+",()=>openPicker({kind:"res",i,role:"SUB"}));s.dataset.kind="res";s.dataset.i=i;resBox.append(s)}
   renderWatch();
   if(state.captain&&!state.xi.includes(state.captain))state.captain=null;
@@ -3702,7 +3702,7 @@ function render(){
   save();
 }
 
-const U20=p=>!!p&&p.age>0&&p.age<20;
+const U20=p=>!!p; // plus de limite d'âge pour la réserve
 function resClosed(t){if(typeof league==="undefined"||!league||!league.roster||!t||!league.roster[t.id])return false;if(seasonDone())return false;
   league.resFull=league.resFull||{};
   if(league.resFull[t.id]==null&&resvOf(t).length>=3){const k=nextDay();if(k<0)return false;league.resFull[t.id]=k;saveLeague()}
@@ -3721,7 +3721,7 @@ function currentName(){if(!target||target.kind==="watch")return null;return (sta
 function openPicker(t){
   if(RO()){toast(viewAI!=null?"Équipe IA : lecture seule":`Équipe de ${state.owner} : lecture seule`);return}
   target=t;
-  document.getElementById("sheetTitle").textContent = t.kind==="watch"?"Ajouter un joueur à surveiller":t.kind==="xi"?`Choisir : ${POS_FR[t.role]}`:t.kind==="res"?"Choisir un réserviste (moins de 20 ans)":"Choisir un remplaçant";
+  document.getElementById("sheetTitle").textContent = t.kind==="watch"?"Ajouter un joueur à surveiller":t.kind==="xi"?`Choisir : ${POS_FR[t.role]}`:t.kind==="res"?"Choisir un réserviste":"Choisir un remplaçant";
   const fPos=document.getElementById("fPos"); fPos.checked=false; document.getElementById("fYoung").checked=false; setGroup(t.kind==="xi"&&GROUP_OF[t.role]?GROUP_OF[t.role]:"");
   document.getElementById("q").value="";
   const cur=currentName();
@@ -3767,7 +3767,7 @@ function renderResults(){
   list.sort(sort==="age"?(a,b)=>((a.age||99)-(b.age||99))||b.ovr-a.ovr:sort==="name"?(a,b)=>a.name.localeCompare(b.name,"fr"):(a,b)=>b.ovr-a.ovr);
   const box=document.getElementById("results"); box.replaceChildren();
   if(isW)box.append(el("p","note","Ajoute autant de joueurs que tu veux. Ils ne peuvent pas jouer : c'est juste ta liste à suivre."));
-  if(isRes)box.append(el("p","note",resLock?"Réserve verrouillée jusqu'à la fin de la saison : tu peux seulement y placer un joueur de ton effectif.":R0&&!R?"Réserve : tu peux recruter un joueur de moins de 20 ans pour cette place libre (il rejoint alors ton effectif).":"Réserve : les nouveaux réservistes doivent avoir moins de 20 ans (badge R). Tu peux aussi y placer un joueur de ton effectif, par exemple un blessé."));
+  if(isRes)box.append(el("p","note",resLock?"Réserve verrouillée jusqu'à la fin de la saison : tu peux seulement y placer un joueur de ton effectif.":R0&&!R?"Réserve : tu peux recruter un joueur pour cette place libre (il rejoint alors ton effectif).":"Réserve : 3 joueurs maximum, sans limite d'âge (badge R). Tu peux aussi y placer un joueur de ton effectif, par exemple un blessé."));
   else if(R)box.append(el("p","note","Mercato fermé pendant la saison : seuls les joueurs de ton effectif sont disponibles."));
   if(!list.length){box.append(el("p","note",R?"Aucun joueur de ton effectif ne correspond.":"Aucun joueur. Décoche « Postes compatibles » ou change ta recherche."));return}
   if(onlyPos && role!=="SUB"){
@@ -3796,7 +3796,8 @@ function pick(name){
   const inTeam=used().has(name);
   if(target.kind==="res"&&!inTeam){if(!U20(BY[name])){toast("La réserve est réservée aux moins de 20 ans");return}
     if(resClosed(state)){toast("Réserve verrouillée : plus de recrutement cette saison");return}
-    if(resvOf(state).length>=3){toast("Tu as déjà 3 réservistes");return}}
+    {const cur=currentName();if(resvOf(state).length>=3&&!(cur&&resvOf(state).includes(cur))){toast("Tu as déjà 3 réservistes");return}
+      if(cur){state.resv=resvOf(state).filter(n=>n!==cur)}}}
   const R=lockedRoster(),resNew=target.kind==="res"&&!currentName();
   if(R&&!R.includes(name)&&!resNew){toast("Mercato fermé : effectif bloqué pendant la saison");return}
   if(R&&!R.includes(name)&&resNew){if(otherTeamsWith(name).length){toast("Ce joueur appartient déjà à une autre de tes équipes");return}R.push(name);saveLeague()}
