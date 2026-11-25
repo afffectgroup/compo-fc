@@ -4238,7 +4238,7 @@ function buildDerived(){const hist={},prog={...(league&&league.prog0||{})};
     const p=BY[n],mins=minsOf(m,s,n);if(!p||!p.age||mins<30)return;const r=R[n];let dl=0;
     if(p.age<=21)dl=Math.max(0,.1+.08*(r-6.5));else if(p.age<=24)dl=Math.max(0,.05+.05*(r-6.5));else if(p.age>=33)dl=-.1;
     prog[n]=Math.max(-4,Math.min(8,(prog[n]||0)+dl))})}));
-  DER={hist,prog};PLAYERS.forEach(p=>{p.ovr=p.base+Math.trunc(prog[p.name]||0)})}
+  DER={hist,prog};PLAYERS.forEach(p=>{p.ovr=p.base})} // note EA telle quelle : plus de progression en cours de saison
 // Récupération en heures réelles : la nuit (≈19 h entre 14h et 9h) récupère bien plus que la pause 9h → 14h (5 h)
 function slotTime(d,c){return (c==="C"&&typeof cupDate==="function"?cupDate(d):roundDate(d)).getTime()}
 // Deux composantes : fatigue immédiate (s'efface en ~1 jour) + fatigue accumulée (s'efface en plusieurs jours).
