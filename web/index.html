@@ -556,7 +556,7 @@ body.view-ai .team-name{pointer-events:none}
 .nextbar .cup{color:var(--gold-a)}
 #imgBtn{display:inline-flex;align-items:center;gap:6px}
 /* Pas de gestion d'équipes : ni création, ni suppression, ni renommage, ni export */
-#newTeam,#delTeam,#imgBtn,#dupTeam,.name-wrap .pen{display:none!important}
+#newTeam,#delTeam,#dupTeam,.name-wrap .pen{display:none!important}
 #teamName{pointer-events:none}
 body.can-new #newTeam{display:inline-flex!important}body.can-edit #delTeam{display:inline-flex!important}
 body.can-edit #teamName{pointer-events:auto}body.can-edit .name-wrap .pen{display:block!important}
@@ -967,7 +967,7 @@ aside{grid-template-columns:minmax(0,1fr)}aside>.box{min-width:0}
     <div class="controls">
       <select id="formation" class="btn" aria-label="Formation"></select>
       <select id="tactic" class="btn" aria-label="Tactique"></select>
-      <button class="btn" id="imgBtn" hidden title="Exporter la compo en image"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span class="hide-s">Image</span></button>
+      <button class="btn" id="imgBtn" title="Image de tous les joueurs : titulaires, remplaçants, réserve et joueurs à surveiller"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span class="hide-s">Capture</span></button>
       <button class="btn plain danger" id="delTeam">Supprimer</button>
     </div>
   </header>
@@ -4606,51 +4606,47 @@ async function drawCard(ctx,p,role,cx,cy,w,cap){
   ctx.font=`700 ${w*.12}px "Poppins",sans-serif`;ctx.fillText(POS_FR[role&&role!=="SUB"?role:p.pos[0]],x+pad+w*.02,y+pad+w*.39);
   const f=FLAGS[p.nat];if(f){const im=await loadImg(f);if(im){const fw=w*.36,fh=fw*.75;ctx.save();rr(ctx,x+w-pad-fw,y+pad,fw,fh,w*.025);ctx.clip();ctx.drawImage(im,x+w-pad-fw,y+pad,fw,fh);ctx.restore()}}
   if(cap){ctx.fillStyle=ink;ctx.beginPath();ctx.arc(x+w-pad-w*.12,y+pad+w*.48,w*.11,0,7);ctx.fill();ctx.fillStyle=a;ctx.font=`800 ${w*.14}px "Poppins",sans-serif`;ctx.textAlign="center";ctx.fillText("C",x+w-pad-w*.12,y+pad+w*.53)}
-  ctx.strokeStyle="rgba(0,0,0,.22)";ctx.lineWidth=Math.max(1,w*.008);ctx.beginPath();ctx.moveTo(x+pad,y+h*.66);ctx.lineTo(x+w-pad,y+h*.66);ctx.stroke();
-  ctx.fillStyle=ink;ctx.textAlign="center";ctx.font=`800 ${w*.15}px "Poppins",sans-serif`;
-  ctx.fillText(fitText(ctx,shortName(p.name).toUpperCase(),w-pad*2),cx,y+h*.81);
+  ctx.fillStyle=ink;ctx.textAlign="center";{const t=shortName(p.name).toUpperCase();let fs=w*.15;ctx.font=`800 ${fs}px "Poppins",sans-serif`;
+    while(fs>w*.09&&ctx.measureText(t).width>w-pad*1.6){fs-=.5;ctx.font=`800 ${fs}px "Poppins",sans-serif`}ctx.fillText(fitText(ctx,t,w-pad*1.6),cx,y+h*.81)}
   ctx.globalAlpha=.75;ctx.font=`500 ${w*.09}px "Poppins",sans-serif`;ctx.fillText(fitText(ctx,p.club,w-pad*2),cx,y+h*.92);ctx.globalAlpha=1;
 }
 async function renderTeamImage(){
-  try{await Promise.all([document.fonts.load('800 40px "Poppins"'),document.fonts.load('700 20px "Poppins"'),document.fonts.load('600 20px "Poppins"'),document.fonts.load('500 20px "Poppins"')])}catch(e){}
-  const W=1080,H=1700,c=document.createElement("canvas");c.width=W;c.height=H;const ctx=c.getContext("2d");
-  ctx.fillStyle="#0c1410";ctx.fillRect(0,0,W,H);
-  ctx.fillStyle="#eef3ee";ctx.textAlign="left";ctx.font='800 64px "Poppins",sans-serif';ctx.fillText(fitText(ctx,(state.name||"Mon équipe").toUpperCase(),W-120),60,100);
-  const xs=state.xi.filter(n=>n&&BY[n]).map(n=>BY[n]),all=[...state.xi,...state.bench].filter(n=>n&&BY[n]).map(n=>BY[n]);
-  const avg=a=>a.length?Math.round(a.reduce((s,p)=>s+p.ovr,0)/a.length):"–";
-  ctx.fillStyle="#93a89a";ctx.font='600 30px "Poppins",sans-serif';
-  const ag=all.filter(p=>p.age>0);ctx.fillText(`${state.formation}   ·   NOTE EFFECTIF ${avg(all)}${ag.length?"   ·   ÂGE MOYEN "+(ag.reduce((s,p)=>s+p.age,0)/ag.length).toFixed(1):""}`,62,148);
-  // pitch
-  const px=60,py=180,pw=W-120,ph=1120;
+  try{await Promise.all(["800 40px","700 20px","600 20px","500 20px"].map(f=>document.fonts.load(f+' "Poppins"')))}catch(e){}
+  const W=1080,M=60,cw=124,gapX=(W-2*M-7*cw)/6,ch=cw*4/3,rowH=ch+30;
+  const bench=state.bench.filter(n=>n&&BY[n]),res=(state.res||[]).filter(n=>n&&BY[n]),watch=(state.watch||[]).filter(n=>n&&BY[n]);
+  const sec=[["Remplaçants",bench],["Réserve",res],["Joueurs à surveiller",watch]].filter(s=>s[1].length);
+  const rows=a=>Math.ceil(a.length/7);
+  const ph=1120,py=180,H=py+ph+40+sec.reduce((s,[,a])=>s+70+rows(a)*rowH,0)+30;
+  const c=document.createElement("canvas");c.width=W;c.height=H;const ctx=c.getContext("2d");
+  ctx.fillStyle="#0e1620";ctx.fillRect(0,0,W,H);
+  ctx.fillStyle="#e8edf2";ctx.textAlign="left";ctx.font='800 60px "Poppins",sans-serif';ctx.fillText(fitText(ctx,(state.name||"Mon équipe").toUpperCase(),W-2*M),M,100);
+  const all=[...state.xi,...state.bench].filter(n=>n&&BY[n]).map(n=>BY[n]),avg=a=>a.length?Math.round(a.reduce((s,p)=>s+p.ovr,0)/a.length):"–",ag=all.filter(p=>p.age>0);
+  ctx.fillStyle="#8a9aab";ctx.font='500 28px "Poppins",sans-serif';
+  ctx.fillText(`${state.formation}, ${tacOf(state).lab.toLowerCase()}. Note effectif ${avg(all)}${ag.length?", âge moyen "+(ag.reduce((s,p)=>s+p.age,0)/ag.length).toFixed(1):""}`,M+2,146);
+  const px=M,pw=W-2*M;
   ctx.save();rr(ctx,px,py,pw,ph,24);ctx.clip();
   for(let i=0;i<10;i++){ctx.fillStyle=i%2?"#1b5130":"#1f5a33";ctx.fillRect(px,py+i*ph/10,pw,ph/10)}
-  ctx.strokeStyle="rgba(255,255,255,.5)";ctx.lineWidth=3;
-  const m=24;ctx.strokeRect(px+m,py+m,pw-2*m,ph-2*m);ctx.beginPath();ctx.moveTo(px+m,py+ph/2);ctx.lineTo(px+pw-m,py+ph/2);ctx.stroke();
-  ctx.beginPath();ctx.arc(px+pw/2,py+ph/2,100,0,7);ctx.stroke();
-  const bw=pw*.56,bh=ph*.15;ctx.strokeRect(px+(pw-bw)/2,py+m,bw,bh);ctx.strokeRect(px+(pw-bw)/2,py+ph-m-bh,bw,bh);
-  ctx.restore();
-  const f=FORMATIONS[state.formation],cw=124;
+  ctx.strokeStyle="rgba(255,255,255,.5)";ctx.lineWidth=3;const m=24;ctx.strokeRect(px+m,py+m,pw-2*m,ph-2*m);ctx.beginPath();ctx.moveTo(px+m,py+ph/2);ctx.lineTo(px+pw-m,py+ph/2);ctx.stroke();
+  ctx.beginPath();ctx.arc(px+pw/2,py+ph/2,100,0,7);ctx.stroke();const bw=pw*.56,bh=ph*.15;ctx.strokeRect(px+(pw-bw)/2,py+m,bw,bh);ctx.strokeRect(px+(pw-bw)/2,py+ph-m-bh,bw,bh);ctx.restore();
+  const f=FORMATIONS[state.formation];
   for(let i=0;i<f.length;i++){const [role,x,y]=f[i],p=BY[state.xi[i]];const cx=px+pw*x/100,cy=py+ph*y/100;
     if(p)await drawCard(ctx,p,role,cx,cy,cw,state.captain===p.name);
-    else{ctx.strokeStyle="rgba(255,255,255,.55)";ctx.setLineDash([8,6]);rr(ctx,cx-cw/2,cy-cw*2/3,cw,cw*4/3,14);ctx.stroke();ctx.setLineDash([]);
-      ctx.fillStyle="#eef3ee";ctx.textAlign="center";ctx.font='700 30px "Poppins",sans-serif';ctx.fillText(POS_FR[role],cx,cy+10)}}
-  // bench
-  ctx.fillStyle="#93a89a";ctx.textAlign="left";ctx.font='700 30px "Poppins",sans-serif';ctx.fillText("REMPLAÇANTS",62,py+ph+64);
-  const bn=state.bench.filter(n=>n&&BY[n]),bwc=124,gap=(pw-7*bwc)/6;
-  for(let i=0;i<bn.length;i++)await drawCard(ctx,BY[bn[i]],"SUB",px+bwc/2+i*(bwc+gap),py+ph+92+bwc*2/3,bwc,false);
-  const tk=SETP.filter(([k])=>state.takers&&state.takers[k]).map(([k,l])=>`${l} : ${shortName(state.takers[k])}`);
-  if(tk.length){ctx.fillStyle="#93a89a";ctx.textAlign="left";ctx.font='500 24px "Poppins",sans-serif';ctx.fillText(fitText(ctx,tk.join("   ·   "),W-124),62,py+ph+92+bwc*4/3+52)}
-  if(!bn.length){ctx.fillStyle="#5d7065";ctx.font='500 26px "Poppins",sans-serif';ctx.fillText("Aucun remplaçant",62,py+ph+120)}
+    else{ctx.strokeStyle="rgba(255,255,255,.55)";ctx.setLineDash([8,6]);rr(ctx,cx-cw/2,cy-ch/2,cw,ch,14);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle="#e8edf2";ctx.textAlign="center";ctx.font='700 30px "Poppins",sans-serif';ctx.fillText(POS_FR[role],cx,cy+10)}}
+  let y=py+ph+40;
+  for(const [lab,list] of sec){ctx.fillStyle="#e8edf2";ctx.textAlign="left";ctx.font='700 30px "Poppins",sans-serif';ctx.fillText(lab,M+2,y+34);const lw=ctx.measureText(lab).width;
+    ctx.fillStyle="#8a9aab";ctx.font='500 24px "Poppins",sans-serif';ctx.fillText(String(list.length),M+2+lw+14,y+34);y+=60;
+    for(let i=0;i<list.length;i++){const col=i%7,row=Math.floor(i/7);await drawCard(ctx,BY[list[i]],"SUB",M+cw/2+col*(cw+gapX),y+row*rowH+ch/2,cw,false)}
+    y+=rows(list)*rowH+10}
   return new Promise(res=>c.toBlob(res,"image/png"));
 }
-let dl=null;
-(async()=>{try{dl=await claude.use("downloads")}catch(e){dl=null}const b=document.getElementById("imgBtn");if(b)b.hidden=!dl})();
 document.getElementById("imgBtn").onclick=async e=>{
-  const b=e.currentTarget;if(!dl)return;b.disabled=true;const t=b.textContent;b.textContent="Création…";
+  const b=e.currentTarget;b.disabled=true;
   try{const blob=await renderTeamImage();const name=((state.name||"equipe").normalize("NFD").replace(/\p{M}/gu,"").replace(/[^\w-]+/g,"-").replace(/^-|-$/g,"")||"equipe")+".png";
-    await dl.save({filename:name,data:blob});toast("Image enregistrée")}
-  catch(err){if(err&&err.code==="declined"){}else if(err&&err.code==="rate_limited")toast("Une fenêtre d'enregistrement est déjà ouverte");else toast("Impossible de créer l'image ici")}
-  finally{b.disabled=false;b.textContent=t}
+    const file=new File([blob],name,{type:"image/png"});
+    if(navigator.canShare&&matchMedia("(pointer:coarse)").matches&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:state.name});return}catch(err){if(err&&err.name==="AbortError")return}}
+    const u=URL.createObjectURL(blob),a=document.createElement("a");a.href=u;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);toast("Image téléchargée")}
+  catch(err){toast("Impossible de créer l'image")}
+  finally{b.disabled=false}
 };
 </script>
 
