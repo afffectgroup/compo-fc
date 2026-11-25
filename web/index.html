@@ -920,6 +920,12 @@ aside{grid-template-columns:minmax(0,1fr)}aside>.box{min-width:0}
 }
 .cupw{margin-top:16px}
 .cp-del{border-style:solid;margin-left:auto}body.dragging-on,body.dragging-on *{-webkit-user-select:none!important;user-select:none!important}
+.card .shirt{position:absolute;left:0;right:0;top:30%;z-index:0;text-align:center;font:800 clamp(22px,46cqw,52px)/1 var(--display);color:var(--card-ink,#1b1608);opacity:.16;letter-spacing:-.04em;pointer-events:none}
+.card.has-ph .shirt{top:auto;bottom:30%;font-size:clamp(14px,22cqw,24px);opacity:.55;left:auto;right:9%;text-align:right}
+.numfld{display:inline-flex;align-items:center;gap:6px;font:600 14px var(--body);color:var(--muted);padding:0 4px}
+.numfld input{width:58px;padding:7px 8px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--fg);font:700 15px var(--body);text-align:center}
+.numfld input:focus{outline:none;border-color:var(--accent)}
+.watch .shirt{display:none}
 </style>
 
 </head>
@@ -1054,6 +1060,7 @@ aside{grid-template-columns:minmax(0,1fr)}aside>.box{min-width:0}
     <div class="sheet-foot" id="sheetFoot">
       <span class="note"><span id="current"></span></span>
       <div class="controls">
+        <label class="numfld" id="numFld" hidden>N°<input type="number" id="numIn" min="1" max="99" inputmode="numeric" placeholder="–" aria-label="Numéro de maillot"></label>
         <button class="btn" id="capBtn">Nommer capitaine</button>
         <button class="btn" id="removeBtn">Retirer du poste</button>
       </div>
@@ -3407,6 +3414,7 @@ const FORMATIONS = {
   "4-4-2":[["GK",50,90],["LB",13,70],["CB",36,73],["CB",64,73],["RB",87,70],["CM",36,49],["CM",64,49],["LW",12,43],["ST",34,15],["ST",66,15],["RW",88,43]],
   "3-5-2":[["GK",50,90],["LB",11,46],["CB",22,72],["CB",50,74],["CB",78,72],["CDM",50,56],["CM",30,40],["CM",70,40],["ST",34,15],["ST",66,15],["RB",89,46]],
   "4-1-3-2":[["GK",50,90],["LB",13,70],["CB",36,73],["CB",64,73],["RB",87,70],["CDM",50,57],["LM",15,40],["CM",50,40],["RM",85,40],["ST",34,14],["ST",66,14]],
+  "4-1-3-1-1":[["GK",50,90],["LB",13,72],["CB",33,76],["CB",67,76],["RB",87,72],["CDM",50,63],["LM",15,45],["CM",50,47],["RM",85,45],["CAM",50,31],["ST",50,13]],
   "4-3-1-2":[["GK",50,90],["LB",13,70],["CB",36,73],["CB",64,73],["RB",87,70],["CDM",50,56],["CM",23,49],["CM",77,49],["CAM",50,35],["ST",34,13],["ST",66,13]]
 };
 const POS_FR={GK:"G",RB:"DD",CB:"DC",LB:"DG",CDM:"MDC",CM:"MC",CAM:"MOC",LM:"MG",RM:"MD",LW:"AG",RW:"AD",ST:"BU",SUB:"REM"};
@@ -3454,7 +3462,7 @@ function setSync(txt,ok){const s=document.getElementById("syncState");if(!s)retu
 function RO(){return viewAI!=null||!!(window.ME&&window.ME!=="admin"&&state&&state.owner&&state.owner!==window.ME)}
 // Une équipe n'est envoyée au serveur que si son contenu a vraiment changé (un simple affichage ne réécrit rien)
 var BOOK_DIRTY=false,EDITS=0;
-function teamSig(t){return JSON.stringify([t.name,t.formation,t.xi,t.bench,t.res,t.resv,t.captain,t.takers,t.tactic,t.watch||[]])}
+function teamSig(t){return JSON.stringify([t.name,t.formation,t.xi,t.bench,t.res,t.resv,t.captain,t.takers,t.tactic,t.watch||[],t.nums||{}])}
 function markSynced(teams){(teams||[]).forEach(t=>{t._srv=t.ts||0;t._sig=teamSig(t)})}
 function save(){if(typeof state!=="undefined"&&state){if(!state.owner&&window.ME&&window.ME!=="admin")state.owner=window.ME;
     if(!RO()){const sig=teamSig(state);if(sig!==state._sig){state._sig=sig;state.ts=Date.now();BOOK_DIRTY=true;EDITS++}}}
@@ -3473,7 +3481,7 @@ function photoId(n){let h=0;for(const ch of n)h=(h*31+ch.charCodeAt(0))>>>0;retu
 async function pushPhoto(name){if(!cloud)return;try{await cloud.col.doc(photoId(name)).set({name,src:photos[name]})}catch(e){toast("Photo gardée sur cet appareil seulement")}}
 function fixBook(b){if(!b||!Array.isArray(b.teams))return b;
   b.teams=b.teams.map(t=>({id:t.id||("t"+Math.random().toString(36).slice(2,10)),name:t.name||"Sans nom",formation:FORMATIONS[t.formation]?t.formation:"4-3-3",
-    xi:Array.from({length:11},(_,i)=>(t.xi&&t.xi[i])||null),bench:Array.from({length:7},(_,i)=>(t.bench&&t.bench[i])||null),res:Array.from({length:5},(_,i)=>(t.res&&t.res[i])||null),resv:Array.isArray(t.resv)?t.resv.filter(n=>typeof n==="string"):null,owner:typeof t.owner==="string"?t.owner:undefined,ts:+t.ts||0,captain:typeof t.captain==="string"?t.captain:null,takers:(t.takers&&typeof t.takers==="object")?{...t.takers}:{},tactic:TACTICS[t.tactic]?t.tactic:"equilibre",watch:Array.isArray(t.watch)?[...new Set(t.watch.filter(n=>typeof n==="string"))].slice(0,300):[]}));return b}
+    xi:Array.from({length:11},(_,i)=>(t.xi&&t.xi[i])||null),bench:Array.from({length:7},(_,i)=>(t.bench&&t.bench[i])||null),res:Array.from({length:5},(_,i)=>(t.res&&t.res[i])||null),resv:Array.isArray(t.resv)?t.resv.filter(n=>typeof n==="string"):null,owner:typeof t.owner==="string"?t.owner:undefined,ts:+t.ts||0,captain:typeof t.captain==="string"?t.captain:null,takers:(t.takers&&typeof t.takers==="object")?{...t.takers}:{},tactic:TACTICS[t.tactic]?t.tactic:"equilibre",watch:Array.isArray(t.watch)?[...new Set(t.watch.filter(n=>typeof n==="string"))].slice(0,300):[],nums:(t.nums&&typeof t.nums==="object")?Object.fromEntries(Object.entries(t.nums).filter(([k,v])=>typeof k==="string"&&+v>=1&&+v<=99).map(([k,v])=>[k,+v])):{}}));return b}
 async function pullCloud(){
   const snap=await cloud.col.get();let remote=null;
   for(const d of snap.docs){const v=d.data();if(d.id==="league"&&v&&v.schedule){const rl=JSON.parse(JSON.stringify(v));if(!league||!league.schedule||rl.id===league.id||!league.results||Object.keys(rl.results||{}).length>=Object.keys(league.results).length){league=rl;try{localStorage.setItem(LKEY,JSON.stringify(league))}catch(e){}}}else if(d.id==="matches"&&v&&Array.isArray(v.list)){const rm=JSON.parse(JSON.stringify(v));const seen=new Set(rm.list.map(x=>x.date));(matches.list||[]).forEach(x=>{if(!seen.has(x.date))rm.list.push(x)});matches={home:rm.home||matches.home,away:rm.away||matches.away,since:[rm.since,matches.since].filter(Boolean).sort()[0]||null,list:rm.list};try{localStorage.setItem(MKEY,JSON.stringify(matches))}catch(e){}}else if(d.id==="photos"&&v&&typeof v==="object"){photos={};Object.entries(v).forEach(([n,u])=>{if(typeof u==="string"&&BY[n])photos[n]=u})}else if(d.id==="book")remote=fixBook(JSON.parse(JSON.stringify(v)));}
@@ -3562,6 +3570,7 @@ function cardFor(p,role){
     c.title=`${p.name} — condition ${cnd} %${fm?` · forme ${fm.avg.toFixed(1)} sur les derniers matchs`:""}${md.why.length?" · "+(md.v>=0?"moral : ":"moral en baisse : ")+md.why.join(", "):""}`}
   if(p.base!=null&&p.ovr!==p.base){const pg=el("span","pg "+(p.ovr>p.base?"up":"down"),(p.ovr>p.base?"+":"")+(p.ovr-p.base));meta.append(pg)}
   {const aw=(window.AWARDS||[]).filter(a=>a.n===p.name&&(!league||a.lg!==league.id));if(aw.length){c.classList.add("bdo");if(!(typeof hdjPending==="function"&&league&&league.results&&hdjPending(p.name)))c.append(el("div","ribbon bdo-rb","BALLON D'OR"));c.title=(c.title||p.name)+` · Ballon d'Or (saison ${aw.map(a=>a.season).join(", ")})`}}
+  {const nb=typeof state!=="undefined"&&state&&state.nums&&state.nums[p.name];if(nb&&role!=="WATCH")c.append(el("div","shirt",String(nb)))}
   {const hj=typeof hdjPending==="function"&&league&&league.results?hdjPending(p.name):null;if(hj){c.classList.add("hdj");c.append(el("div","ribbon","HDJ +1"));
     c.title=(c.title||p.name)+` · Homme de la journée (J${hj.k+1}, note ${hj.r.toFixed(1)}) : +1 au prochain match`}}
   if(st){c.classList.add("out");const b=el("div","stb "+st.type);b.append(el("i",st.type==="inj"?"ic-inj":"ic-red"),document.createTextNode(st.left+"J"));b.title=`${st.why} · ${st.left} journée${st.left>1?"s":""}`;c.append(b);c.title=`${p.name} — ${st.why}, absent ${st.left} journée${st.left>1?"s":""}`}
@@ -3731,7 +3740,7 @@ function openPicker(t){
   {let extra="";try{const k=myNextDay();if(cur&&k>=0&&DER.hist[cur]){const md=moodOf(cur,k,state);extra=` · condition ${conditionOf(cur,k)} %`+(md.why.length?` · ${md.why.join(", ")}`:"")}}catch(e){}
    document.getElementById("current").textContent=cur?`Actuellement : ${cur}${extra}`:"Poste vide";}
   document.getElementById("removeBtn").hidden=!cur||t.kind==="watch"||(!!lockedRoster()&&!(t.kind==="res"&&!resClosed(state)));
-  const cb=document.getElementById("capBtn"); cb.hidden=!(cur&&t.kind==="xi"); cb.textContent=state.captain===cur?"Retirer le brassard":"Nommer capitaine";
+  const cb=document.getElementById("capBtn"); cb.hidden=!(cur&&t.kind==="xi");{const nf=document.getElementById("numFld"),ni=document.getElementById("numIn");nf.hidden=!cur||t.kind==="watch";ni.value=cur&&state.nums&&state.nums[cur]?state.nums[cur]:"";ni.dataset.n=cur||""}; cb.textContent=state.captain===cur?"Retirer le brassard":"Nommer capitaine";
   document.getElementById("conflict").hidden=true; pending=null;
   document.getElementById("overlay").hidden=false;
   renderResults(); if(window.matchMedia&&matchMedia("(hover:hover) and (pointer:fine)").matches)setTimeout(()=>document.getElementById("q").focus(),30);
@@ -4612,6 +4621,8 @@ async function drawCard(ctx,p,role,cx,cy,w,cap){
   ctx.font=`800 ${w*.27}px "Poppins",sans-serif`;ctx.fillText(p.ovr,x+pad,y+pad+w*.24);
   ctx.font=`700 ${w*.12}px "Poppins",sans-serif`;ctx.fillText(POS_FR[role&&role!=="SUB"?role:p.pos[0]],x+pad+w*.02,y+pad+w*.39);
   const f=FLAGS[p.nat];if(f){const im=await loadImg(f);if(im){const fw=w*.36,fh=fw*.75;ctx.save();rr(ctx,x+w-pad-fw,y+pad,fw,fh,w*.025);ctx.clip();ctx.drawImage(im,x+w-pad-fw,y+pad,fw,fh);ctx.restore()}}
+  {const nb=state&&state.nums&&state.nums[p.name];if(nb){ctx.save();ctx.fillStyle=ink;ctx.textAlign="center";const ph=typeof photos!=="undefined"&&photos[p.name];
+    if(ph){ctx.globalAlpha=.55;ctx.textAlign="right";ctx.font=`800 ${w*.22}px "Poppins",sans-serif`;ctx.fillText(String(nb),x+w-pad,y+h*.68)}else{ctx.globalAlpha=.16;ctx.font=`800 ${w*.46}px "Poppins",sans-serif`;ctx.fillText(String(nb),cx,y+h*.62)}ctx.restore()}}
   if(cap){ctx.fillStyle=ink;ctx.beginPath();ctx.arc(x+w-pad-w*.12,y+pad+w*.48,w*.11,0,7);ctx.fill();ctx.fillStyle=a;ctx.font=`800 ${w*.14}px "Poppins",sans-serif`;ctx.textAlign="center";ctx.fillText("C",x+w-pad-w*.12,y+pad+w*.53)}
   ctx.fillStyle=ink;ctx.textAlign="center";{const t=shortName(p.name).toUpperCase();let fs=w*.15;ctx.font=`800 ${fs}px "Poppins",sans-serif`;
     while(fs>w*.09&&ctx.measureText(t).width>w-pad*1.6){fs-=.5;ctx.font=`800 ${fs}px "Poppins",sans-serif`}ctx.fillText(fitText(ctx,t,w-pad*1.6),cx,y+h*.81)}
@@ -5201,6 +5212,17 @@ document.getElementById("imgBtn").onclick=async e=>{
     document.body.classList.toggle("can-edit",!!(me&&open()&&own&&mineCount()>1&&viewAI==null));
     {const tn=document.getElementById("teamName");if(tn)tn.readOnly=!document.body.classList.contains("can-edit")}
     const nav=document.querySelector("#view-equipe .teams");if(nav&&me&&open())nav.classList.remove("solo")}catch(e){}};
+})();
+</script>
+<script>
+// Numéro de maillot : unique dans l'équipe, 1 à 99
+(function(){const ni=document.getElementById("numIn");if(!ni)return;
+  const commit=()=>{const n=ni.dataset.n;if(!n||RO())return;state.nums=state.nums||{};const v=parseInt(ni.value,10);
+    if(!ni.value){delete state.nums[n];save();render();return}
+    if(!(v>=1&&v<=99)){toast("Numéro entre 1 et 99");ni.value=state.nums[n]||"";return}
+    const other=Object.keys(state.nums).find(k=>k!==n&&state.nums[k]===v);if(other){delete state.nums[other];toast(`N° ${v} retiré à ${shortName(other)}`)}
+    state.nums[n]=v;save();render()};
+  ni.addEventListener("change",commit);ni.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();ni.blur()}});
 })();
 </script>
 </body>
