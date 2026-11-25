@@ -4597,10 +4597,16 @@ const imgCache={};
 function loadImg(src){if(imgCache[src])return imgCache[src];return imgCache[src]=new Promise(res=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>res(null);i.src=src})}
 function rr(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
 function fitText(ctx,t,max){if(ctx.measureText(t).width<=max)return t;while(t.length>1&&ctx.measureText(t+"…").width>max)t=t.slice(0,-1);return t+"…"}
+// Photo de joueur utilisable dans l'image (les liens externes sans autorisation CORS sont ignorés pour ne pas bloquer l'export)
+const photoCache={};
+function loadPhoto(src){if(photoCache[src])return photoCache[src];return photoCache[src]=new Promise(res=>{const i=new Image();if(/^https?:/.test(src)&&!src.startsWith(location.origin))i.crossOrigin="anonymous";
+  i.onload=()=>{try{const t=document.createElement("canvas");t.width=t.height=1;const c=t.getContext("2d");c.drawImage(i,0,0,1,1);c.getImageData(0,0,1,1);res(i)}catch(e){res(null)}};i.onerror=()=>res(null);i.src=src;setTimeout(()=>res(null),6000)})}
 async function drawCard(ctx,p,role,cx,cy,w,cap){
   const h=w*4/3,x=cx-w/2,y=cy-h/2,[a,b]=TIER_COL[tierOf(p)];
   ctx.save();ctx.shadowColor="rgba(0,0,0,.45)";ctx.shadowBlur=w*.12;ctx.shadowOffsetY=w*.04;
   const g=ctx.createLinearGradient(x,y,x+w,y+h);g.addColorStop(0,a);g.addColorStop(1,b);ctx.fillStyle=g;rr(ctx,x,y,w,h,w*.1);ctx.fill();ctx.restore();
+  {const src=typeof photos!=="undefined"&&photos[p.name];if(src&&/^https?:|^data:image\/|^\/photos\//.test(src)){const im=await loadPhoto(src);
+    if(im){const bx=x+w*.14,by=y+h*.27,bw=w*.72,bh=h*.48,s=Math.min(bw/im.width,bh/im.height),dw=im.width*s,dh=im.height*s;ctx.drawImage(im,bx+(bw-dw)/2,by+bh-dh,dw,dh)}}}
   const pad=w*.09,ink="#1b1608";ctx.fillStyle=ink;ctx.textBaseline="alphabetic";ctx.textAlign="left";
   ctx.font=`800 ${w*.27}px "Poppins",sans-serif`;ctx.fillText(p.ovr,x+pad,y+pad+w*.24);
   ctx.font=`700 ${w*.12}px "Poppins",sans-serif`;ctx.fillText(POS_FR[role&&role!=="SUB"?role:p.pos[0]],x+pad+w*.02,y+pad+w*.39);
