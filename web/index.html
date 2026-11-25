@@ -996,7 +996,7 @@ aside{grid-template-columns:minmax(0,1fr)}aside>.box{min-width:0}
           </div>
         </div>
         <div class="bench" id="bench"></div>
-        <div id="resWrap"><div class="res-top"><p class="res-h"><b>Réserve</b><span> · 3 joueurs</span></p><button type="button" class="btn small watch-btn" id="watchBtn" aria-expanded="false"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>À surveiller</span><b id="watchN"></b></button></div><div class="bench" id="reserve"></div><div id="watchWrap" hidden><p class="res-h"><b>Joueurs à surveiller</b><span> · pour toi seulement, ils ne jouent pas</span></p><div class="bench watch" id="watch"></div></div></div>
+        <div id="resWrap"><div class="res-top"><p class="res-h"><b>Réserve</b><span> · 5 joueurs</span></p><button type="button" class="btn small watch-btn" id="watchBtn" aria-expanded="false"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>À surveiller</span><b id="watchN"></b></button></div><div class="bench" id="reserve"></div><div id="watchWrap" hidden><p class="res-h"><b>Joueurs à surveiller</b><span> · pour toi seulement, ils ne jouent pas</span></p><div class="bench watch" id="watch"></div></div></div>
         <div class="setp" id="setp" hidden></div>
       </section>
       <section class="box pre" id="preMatch" hidden></section>
@@ -3471,7 +3471,7 @@ function photoId(n){let h=0;for(const ch of n)h=(h*31+ch.charCodeAt(0))>>>0;retu
 async function pushPhoto(name){if(!cloud)return;try{await cloud.col.doc(photoId(name)).set({name,src:photos[name]})}catch(e){toast("Photo gardée sur cet appareil seulement")}}
 function fixBook(b){if(!b||!Array.isArray(b.teams))return b;
   b.teams=b.teams.map(t=>({id:t.id||("t"+Math.random().toString(36).slice(2,10)),name:t.name||"Sans nom",formation:FORMATIONS[t.formation]?t.formation:"4-3-3",
-    xi:Array.from({length:11},(_,i)=>(t.xi&&t.xi[i])||null),bench:Array.from({length:7},(_,i)=>(t.bench&&t.bench[i])||null),res:Array.from({length:3},(_,i)=>(t.res&&t.res[i])||null),resv:Array.isArray(t.resv)?t.resv.filter(n=>typeof n==="string"):null,owner:typeof t.owner==="string"?t.owner:undefined,ts:+t.ts||0,captain:typeof t.captain==="string"?t.captain:null,takers:(t.takers&&typeof t.takers==="object")?{...t.takers}:{},tactic:TACTICS[t.tactic]?t.tactic:"equilibre",watch:Array.isArray(t.watch)?[...new Set(t.watch.filter(n=>typeof n==="string"))].slice(0,300):[]}));return b}
+    xi:Array.from({length:11},(_,i)=>(t.xi&&t.xi[i])||null),bench:Array.from({length:7},(_,i)=>(t.bench&&t.bench[i])||null),res:Array.from({length:5},(_,i)=>(t.res&&t.res[i])||null),resv:Array.isArray(t.resv)?t.resv.filter(n=>typeof n==="string"):null,owner:typeof t.owner==="string"?t.owner:undefined,ts:+t.ts||0,captain:typeof t.captain==="string"?t.captain:null,takers:(t.takers&&typeof t.takers==="object")?{...t.takers}:{},tactic:TACTICS[t.tactic]?t.tactic:"equilibre",watch:Array.isArray(t.watch)?[...new Set(t.watch.filter(n=>typeof n==="string"))].slice(0,300):[]}));return b}
 async function pullCloud(){
   const snap=await cloud.col.get();let remote=null;
   for(const d of snap.docs){const v=d.data();if(d.id==="league"&&v&&v.schedule){const rl=JSON.parse(JSON.stringify(v));if(!league||!league.schedule||rl.id===league.id||!league.results||Object.keys(rl.results||{}).length>=Object.keys(league.results).length){league=rl;try{localStorage.setItem(LKEY,JSON.stringify(league))}catch(e){}}}else if(d.id==="matches"&&v&&Array.isArray(v.list)){const rm=JSON.parse(JSON.stringify(v));const seen=new Set(rm.list.map(x=>x.date));(matches.list||[]).forEach(x=>{if(!seen.has(x.date))rm.list.push(x)});matches={home:rm.home||matches.home,away:rm.away||matches.away,since:[rm.since,matches.since].filter(Boolean).sort()[0]||null,list:rm.list};try{localStorage.setItem(MKEY,JSON.stringify(matches))}catch(e){}}else if(d.id==="photos"&&v&&typeof v==="object"){photos={};Object.entries(v).forEach(([n,u])=>{if(typeof u==="string"&&BY[n])photos[n]=u})}else if(d.id==="book")remote=fixBook(JSON.parse(JSON.stringify(v)));}
@@ -3634,7 +3634,7 @@ function endDrag(e){
     if(lockedRoster()){toast("Mercato fermé : impossible de faire entrer ou sortir un joueur de l'effectif pendant la saison");return}
     if(wn&&used().has(wn)){toast(`${wn} est déjà dans ton équipe`);return}
     if(wn&&sk==="res"&&!U20(BY[wn])){toast("La réserve est réservée aux moins de 20 ans");return}
-    if(wn&&sk==="res"&&resvOf(state).length>=3&&!(sn&&resvOf(state).includes(sn))){toast("Tu as déjà 3 réservistes");return}
+    if(wn&&sk==="res"&&resvOf(state).length>=5&&!(sn&&resvOf(state).includes(sn))){toast("Tu as déjà 5 réservistes");return}
     state[sk][si]=wn;if(sk==="res"&&wn){resvOf(state);if(!state.resv.includes(wn))state.resv.push(wn)}
     if(sn){W[wi]=sn}else W.splice(wi,1);if(!wn&&sn)W.push(sn);
     render();toast(wn?`${shortName(wn)} entre dans l'équipe${sn?`, ${shortName(sn)} passe en joueur à surveiller`:""}`:`${shortName(sn)} passe en joueur à surveiller`);return}
@@ -3671,8 +3671,8 @@ function render(){
   if(!Array.isArray(state.res))state.res=[null,null,null];while(state.res.length<3)state.res.push(null);
   const resBox=document.getElementById("reserve");resBox.replaceChildren();
   {const rh=document.querySelector("#resWrap .res-h span");if(rh){const lk=resClosed(state),n=resvOf(state).length,k=league&&league.resFull&&league.resFull[state.id];
-    rh.textContent=lk?" · verrouillée jusqu'à la fin de la saison":n>=3&&k!=null&&!seasonDone()?` · 3/3, modifiable jusqu'à ${fmtDate(dstr(roundDate(k)))} ${slotHour(k)}h, puis verrouillée`:` · ${n}/3 joueurs`}}
-  for(let i=0;i<3;i++){const s=slotBtn(state.res[i],"SUB","+",()=>openPicker({kind:"res",i,role:"SUB"}));s.dataset.kind="res";s.dataset.i=i;resBox.append(s)}
+    rh.textContent=lk?" · verrouillée jusqu'à la fin de la saison":n>=5&&k!=null&&!seasonDone()?` · 5/5, modifiable jusqu'à ${fmtDate(dstr(roundDate(k)))} ${slotHour(k)}h, puis verrouillée`:` · ${n}/5 joueurs`}}
+  for(let i=0;i<5;i++){const s=slotBtn(state.res[i],"SUB","+",()=>openPicker({kind:"res",i,role:"SUB"}));s.dataset.kind="res";s.dataset.i=i;resBox.append(s)}
   renderWatch();
   if(state.captain&&!state.xi.includes(state.captain))state.captain=null;
   if(!state.takers)state.takers={}; for(const k in state.takers) if(state.takers[k]&&!state.xi.includes(state.takers[k])) state.takers[k]=null;
@@ -3706,10 +3706,10 @@ function render(){
 const U20=p=>!!p; // plus de limite d'âge pour la réserve
 function resClosed(t){if(typeof league==="undefined"||!league||!league.roster||!t||!league.roster[t.id])return false;if(seasonDone())return false;
   league.resFull=league.resFull||{};
-  if(league.resFull[t.id]==null&&resvOf(t).length>=3){const k=nextDay();if(k<0)return false;league.resFull[t.id]=k;saveLeague()}
+  if(league.resFull[t.id]==null&&resvOf(t).length>=5){const k=nextDay();if(k<0)return false;league.resFull[t.id]=k;saveLeague()}
   const k=league.resFull[t.id];return k!=null&&new Date()>=roundDate(k)}
 function resvOf(t){if(!t)return [];const all=new Set(typeof teamPlayers==="function"&&t.xi?teamPlayers(t):[...(t.xi||[]),...(t.bench||[]),...(t.res||[])].filter(Boolean));
-  if(!Array.isArray(t.resv))t.resv=(t.res||[]).filter(n=>n&&U20(BY[n]));t.resv=t.resv.filter(n=>all.has(n)).slice(0,3);return t.resv}
+  if(!Array.isArray(t.resv))t.resv=(t.res||[]).filter(n=>n&&U20(BY[n]));t.resv=t.resv.filter(n=>all.has(n)).slice(0,5);return t.resv}
 function teamPlayers(t){return [...new Set([...t.xi,...t.bench,...(t.res||[])].filter(Boolean))]}
 function snapRoster(){league.roster={};league.mine.forEach(m=>{const t=book.teams.find(x=>x.id===m.id);if(t)league.roster[m.id]=teamPlayers(t)})}
 function lockedRoster(){if(typeof league==="undefined"||!league||!league.roster||!state)return null;if(seasonDone())return null; // intersaison : mercato ouvert
@@ -3768,7 +3768,7 @@ function renderResults(){
   list.sort(sort==="age"?(a,b)=>((a.age||99)-(b.age||99))||b.ovr-a.ovr:sort==="name"?(a,b)=>a.name.localeCompare(b.name,"fr"):(a,b)=>b.ovr-a.ovr);
   const box=document.getElementById("results"); box.replaceChildren();
   if(isW)box.append(el("p","note","Ajoute autant de joueurs que tu veux. Ils ne peuvent pas jouer : c'est juste ta liste à suivre."));
-  if(isRes)box.append(el("p","note",resLock?"Réserve verrouillée jusqu'à la fin de la saison : tu peux seulement y placer un joueur de ton effectif.":R0&&!R?"Réserve : tu peux recruter un joueur pour cette place libre (il rejoint alors ton effectif).":"Réserve : 3 joueurs maximum, sans limite d'âge (badge R). Tu peux aussi y placer un joueur de ton effectif, par exemple un blessé."));
+  if(isRes)box.append(el("p","note",resLock?"Réserve verrouillée jusqu'à la fin de la saison : tu peux seulement y placer un joueur de ton effectif.":R0&&!R?"Réserve : tu peux recruter un joueur pour cette place libre (il rejoint alors ton effectif).":"Réserve : 5 joueurs maximum, sans limite d'âge (badge R). Tu peux aussi y placer un joueur de ton effectif, par exemple un blessé."));
   else if(R)box.append(el("p","note","Mercato fermé pendant la saison : seuls les joueurs de ton effectif sont disponibles."));
   if(!list.length){box.append(el("p","note",R?"Aucun joueur de ton effectif ne correspond.":"Aucun joueur. Décoche « Postes compatibles » ou change ta recherche."));return}
   if(onlyPos && role!=="SUB"){
@@ -3797,7 +3797,7 @@ function pick(name){
   const inTeam=used().has(name);
   if(target.kind==="res"&&!inTeam){if(!U20(BY[name])){toast("La réserve est réservée aux moins de 20 ans");return}
     if(resClosed(state)){toast("Réserve verrouillée : plus de recrutement cette saison");return}
-    {const cur=currentName();if(resvOf(state).length>=3&&!(cur&&resvOf(state).includes(cur))){toast("Tu as déjà 3 réservistes");return}
+    {const cur=currentName();if(resvOf(state).length>=5&&!(cur&&resvOf(state).includes(cur))){toast("Tu as déjà 5 réservistes");return}
       if(cur){state.resv=resvOf(state).filter(n=>n!==cur)}}}
   const R=lockedRoster(),resNew=target.kind==="res"&&!currentName();
   if(R&&!R.includes(name)&&!resNew){toast("Mercato fermé : effectif bloqué pendant la saison");return}
@@ -3853,7 +3853,7 @@ const _sv=document.getElementById("saveBtn"); if(_sv)_sv.onclick=()=>{
   pushBook().then(ok=>toast(ok?`« ${state.name} » enregistrée sur ton compte à ${h}`:"Synchro impossible, réessaie dans un instant"));
 };
 const _cbb=document.getElementById("clearBench"); if(_cbb)_cbb.onclick=()=>{if(!state.bench.some(Boolean))return;state.bench=Array(7).fill(null);render();toast("Banc vidé")};
-document.getElementById("newTeam").onclick=()=>{const nt=blankTeam(`Équipe ${book.teams.length+1}`);if(window.ME&&window.ME!=="admin")nt.owner=window.ME;nt.res=[null,null,null];nt.id="t"+Math.random().toString(36).slice(2,10);nt.ts=Date.now();book.teams.push(nt);switchTeam(book.teams.length-1);const n=document.getElementById("teamName");n.focus();n.select();toast("Équipe créée, donne-lui un nom")};
+document.getElementById("newTeam").onclick=()=>{const nt=blankTeam(`Équipe ${book.teams.length+1}`);if(window.ME&&window.ME!=="admin")nt.owner=window.ME;nt.res=[null,null,null,null,null];nt.id="t"+Math.random().toString(36).slice(2,10);nt.ts=Date.now();book.teams.push(nt);switchTeam(book.teams.length-1);const n=document.getElementById("teamName");n.focus();n.select();toast("Équipe créée, donne-lui un nom")};
 const _dup=document.getElementById("dupTeam"); if(_dup)_dup.onclick=()=>{const c=structuredClone(state);c.id="t"+Math.random().toString(36).slice(2,10);c.name=state.name+" (copie)";book.teams.splice(book.cur+1,0,c);switchTeam(book.cur+1);toast("Équipe dupliquée")};
 document.getElementById("delTeam").onclick=e=>{
   const b=e.currentTarget; if(book.teams.length<2)return;
