@@ -88,6 +88,7 @@ persist();
 // ---------- Fusion des écritures venant des navigateurs ----------
 let lastConflicts = [];
 const teamChanged = (a, b) => JSON.stringify([a.name, a.formation, a.xi, a.bench, a.res, a.resv, a.captain, a.takers, a.tactic, a.watch || [], a.nums || {}]) !== JSON.stringify([b.name, b.formation, b.xi, b.bench, b.res, b.resv, b.captain, b.takers, b.tactic, b.watch || [], b.nums || {}]);
+const MIN_APPV = 2;
 function mergeBook(cur, inc, user) {
   lastConflicts = [];
   if (!cur || !Array.isArray(cur.teams)) return { teams: inc.teams || [], cur: inc.cur || 0 };
@@ -99,6 +100,7 @@ function mergeBook(cur, inc, user) {
   for (const t of inc.teams || []) {
     const old = byId.get(t.id);
     const { _srv, _sig, ...clean } = t;
+    if (old && old.nums && !("nums" in clean)) clean.nums = old.nums;
     // Accepté seulement si le client partait de la version actuelle du serveur (sinon c'est une copie périmée : on garde le serveur)
     const fresh = old && (_srv != null ? (old.ts || 0) <= _srv : (clean.ts || 0) >= (old.ts || 0));
     if (!old) order.push({ ...clean, owner: clean.owner || (user && user !== "admin" ? user : undefined) });
@@ -331,6 +333,7 @@ const server = http.createServer(async (req, res) => {
         persist();
         return send(res, 200, { ok: true });
       }
+      if (id === "book" && !((+(data && data.appv) || 0) >= MIN_APPV)) return send(res, 409, { error: "update" }); // ancienne version de l'app : elle effacerait les nouveaux champs
       if (id === "book") store.docs.book = mergeBook(store.docs.book, data, userOf(req));
       else if (id === "league") {
         const cur = store.docs.league, u = userOf(req);

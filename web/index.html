@@ -626,7 +626,9 @@ body.can-edit #teamName{pointer-events:auto}body.can-edit .name-wrap .pen{displa
 .ph-row input{width:100%;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px}
 .ph-row input:focus{border-color:var(--accent);outline:none}
 .ph-row.bad input{border-color:#e0735a}
+.nums-sheet .sheet{width:min(460px,100%)}.nums-h{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:8px 2px 0}.ph-row.nums-row{grid-template-columns:40px minmax(0,1fr) 72px}.nums-pos{font-size:12px;font-weight:700;color:var(--muted);text-align:center}.nums-row input{text-align:center;font-size:16px;font-weight:700}
 @media (max-width:600px){.ph-row{grid-template-columns:48px minmax(0,1fr) auto auto}.ph-row input{grid-column:1/-1}}
+.ph-list .ph-row.nums-row{grid-template-columns:40px minmax(0,1fr) 64px;padding:4px 6px}.ph-list .nums-row input{grid-column:auto;padding:6px 4px;-moz-appearance:textfield}.nums-row input::-webkit-inner-spin-button,.nums-row input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}.nums-sheet .sheet-title h3{font-size:20px}
 /* ---- Infobulles de l'app (à la place de celles du navigateur) ---- */
 .tip{position:fixed;z-index:60;max-width:280px;padding:8px 11px;border-radius:10px;background:var(--panel);color:var(--fg);border:1px solid var(--line);
   box-shadow:0 10px 28px rgba(0,0,0,.35);font-size:13px;line-height:1.4;pointer-events:none;opacity:0;transform:translateY(4px);transition:opacity .12s,transform .12s}
@@ -944,7 +946,7 @@ aside{grid-template-columns:minmax(0,1fr)}aside>.box{min-width:0}
     <button type="button" class="theme-btn" id="themeBtn" hidden aria-label="Thème"></button>
     <div class="me" id="meBox" hidden>
       <button type="button" class="me-btn" id="meBtn" aria-haspopup="true" aria-expanded="false"><span class="me-av" id="meAv"></span><span class="me-nm" id="meNm"></span></button>
-      <div class="me-menu" id="meMenu" hidden><a href="#" id="photosLink" hidden>Photos des joueurs</a><a href="#" id="backupsLink" hidden>Sauvegardes</a><a href="/logout">Se déconnecter</a></div>
+      <div class="me-menu" id="meMenu" hidden><a href="#" id="numsLink">Numéros de maillot</a><a href="#" id="photosLink" hidden>Photos des joueurs</a><a href="#" id="backupsLink" hidden>Sauvegardes</a><a href="/logout">Se déconnecter</a></div>
     </div>
   </div>
 </div>
@@ -3461,7 +3463,7 @@ let cloud=null, pushTimer=null;
 function setSync(txt,ok){const s=document.getElementById("syncState");if(!s)return;s.textContent=txt;s.classList.toggle("ok",!!ok)}
 function RO(){return viewAI!=null||!!(window.ME&&window.ME!=="admin"&&state&&state.owner&&state.owner!==window.ME)}
 // Une équipe n'est envoyée au serveur que si son contenu a vraiment changé (un simple affichage ne réécrit rien)
-var BOOK_DIRTY=false,EDITS=0;
+var BOOK_DIRTY=false,EDITS=0,APPV=2; // à augmenter quand le format des équipes change (les anciennes versions ne peuvent plus écrire)
 function teamSig(t){return JSON.stringify([t.name,t.formation,t.xi,t.bench,t.res,t.resv,t.captain,t.takers,t.tactic,t.watch||[],t.nums||{}])}
 function markSynced(teams){(teams||[]).forEach(t=>{t._srv=t.ts||0;t._sig=teamSig(t)})}
 function save(){if(typeof state!=="undefined"&&state){if(!state.owner&&window.ME&&window.ME!=="admin")state.owner=window.ME;
@@ -3469,7 +3471,7 @@ function save(){if(typeof state!=="undefined"&&state){if(!state.owner&&window.ME
   let ok=true;try{localStorage.setItem(BKEY,JSON.stringify(book))}catch(e){ok=false}
   if(cloud&&BOOK_DIRTY){clearTimeout(pushTimer);pushTimer=setTimeout(pushBook,700)}return ok}
 async function pushBook(){clearTimeout(pushTimer);pushTimer=null;if(!cloud)return false;const e0=EDITS;
-  try{const res=await cloud.col.doc("book").set({teams:book.teams,cur:book.cur,deleted:book.deleted||[],updated:Date.now()});
+  try{const res=await cloud.col.doc("book").set({teams:book.teams,cur:book.cur,deleted:book.deleted||[],updated:Date.now(),appv:APPV});
     if(res&&res.conflicts&&res.conflicts.length){
       // Cette copie était périmée (équipe modifiée depuis un autre appareil) : on recharge la version du serveur
       BOOK_DIRTY=false;const r=await pullCloud();if(r&&Array.isArray(r.teams)&&r.teams.length){markSynced(r.teams);const cur=state&&state.id;book={teams:r.teams,cur:Math.max(0,r.teams.findIndex(t=>t.id===cur)),deleted:[]};state=book.teams[book.cur];render()}
@@ -4707,6 +4709,34 @@ document.getElementById("imgBtn").onclick=async e=>{
     tb.hidden=false;paint();
     tb.onclick=()=>{const n=NEXT[window.getThemePref()];window.setThemePref(n);paint();if(typeof toast==="function")toast(n==="auto"?"Thème : comme le système":`Thème : ${LAB[n].toLowerCase()}`)};
     document.addEventListener("themechange",paint)}
+  // Numéros de maillot : toute l'équipe sur un seul écran
+  {const nl=document.getElementById("numsLink");if(nl)nl.onclick=e=>{e.preventDefault();document.getElementById("meMenu").hidden=true;openNums()}}
+  function openNums(){
+    if(typeof state==="undefined"||!state)return;
+    if(RO()){toast("Ouvre une de tes équipes pour gérer ses numéros");return}
+    const ov=document.createElement("div");ov.className="overlay ph-sheet nums-sheet";const sh=document.createElement("div");sh.className="sheet";ov.append(sh);
+    const head=el("div","sheet-head"),tt=el("div","sheet-title");tt.append(el("h3",null,"Numéros · "+(state.name||"Mon équipe")));const cl=el("button","btn","Fermer");cl.type="button";tt.append(cl);head.append(tt);
+    head.append(el("p","note","De 1 à 99, un numéro par joueur. Laisse vide pour aucun numéro. Enregistré automatiquement."));sh.append(head);
+    const list=el("div","ph-list");sh.append(list);
+    const groups=[["Titulaires",state.xi||[]],["Remplaçants",state.bench||[]],["Réserve",state.res||[]]];
+    const inputs={};
+    const refresh=()=>{const N=state.nums||{};const cnt={};Object.values(N).forEach(v=>cnt[v]=(cnt[v]||0)+1);
+      for(const [n,i] of Object.entries(inputs)){if(document.activeElement!==i)i.value=N[n]||"";i.parentElement.classList.toggle("bad",!!(N[n]&&cnt[N[n]]>1))}};
+    groups.forEach(([lab,arr],gi)=>{const names=arr.filter(n=>n&&BY[n]);if(!names.length)return;list.append(el("div","nums-h",lab));
+      names.forEach((n,k)=>{const p=BY[n],row=el("div","ph-row nums-row");
+        const role=gi===0&&state.formation&&FORMATIONS[state.formation]?FORMATIONS[state.formation][arr.indexOf(n)][0]:p.pos[0];
+        row.append(el("span","nums-pos",POS_FR[role]||role));const nm=el("div");nm.append(el("b",null,n),el("small",null,p.club||""));row.append(nm);
+        const i=document.createElement("input");i.type="number";i.min=1;i.max=99;i.inputMode="numeric";i.placeholder="–";i.setAttribute("aria-label","Numéro de "+n);inputs[n]=i;row.append(i);
+        const commit=()=>{state.nums=state.nums||{};if(!i.value){if(state.nums[n]!=null){delete state.nums[n];save();render()}refresh();return}
+          const v=parseInt(i.value,10);if(!(v>=1&&v<=99)){toast("Numéro entre 1 et 99");i.value=state.nums[n]||"";return}
+          if(state.nums[n]===v)return;const other=Object.keys(state.nums).find(k=>k!==n&&state.nums[k]===v);if(other){delete state.nums[other];toast(`N° ${v} retiré à ${shortName(other)}`)}
+          state.nums[n]=v;save();render();refresh()};
+        i.addEventListener("focus",()=>i.select());i.addEventListener("change",commit);i.addEventListener("keydown",e=>{if(e.key==="Enter"){commit();const all=Object.values(inputs),nx=all[all.indexOf(i)+1];if(nx)nx.focus();else i.blur()}});
+        list.append(row)})});
+    if(!Object.keys(inputs).length)list.append(el("p","note","Aucun joueur dans cette équipe pour l'instant."));
+    refresh();
+    const close=()=>ov.remove();cl.onclick=close;ov.onclick=e=>{if(e.target===ov)close()};document.body.append(ov);
+  }
   // Photos des joueurs : réservé au compte admin, qui colle un lien d'image par joueur
   if(window.ME==="admin"){const pl=document.getElementById("photosLink");if(pl){pl.hidden=false;pl.onclick=e=>{e.preventDefault();document.getElementById("meMenu").hidden=true;openPhotos()}}}
   if(window.ME==="admin"){const bl=document.getElementById("backupsLink");if(bl){bl.hidden=false;bl.onclick=e=>{e.preventDefault();document.getElementById("meMenu").hidden=true;openBackups()}}}

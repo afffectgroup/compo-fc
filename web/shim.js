@@ -23,6 +23,8 @@
   document.addEventListener("DOMContentLoaded", applyTheme);
   if ("serviceWorker" in navigator) {
     addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
+    // Nouveau service worker actif : on recharge une fois pour passer sur la nouvelle version
+    { let had = !!navigator.serviceWorker.controller, done = false; navigator.serviceWorker.addEventListener("controllerchange", () => { if (had && !done) { done = true; location.reload(); } had = true; }); }
     // Mise à jour de l'app détectée : rechargement automatique dès que rien n'est en cours (pas de carte en main, pas de fenêtre ouverte)
     navigator.serviceWorker.addEventListener("message", ev => {
       if (!ev.data || ev.data.type !== "app-updated") return;
@@ -37,6 +39,7 @@
   async function api(path, opts) {
     const r = await fetch(path, Object.assign({ credentials: "same-origin" }, opts || {}));
     if (r.status === 401) { location.href = "/login"; throw new Error("auth"); }
+    if (r.status === 409 && !sessionStorage.getItem("cfc-upd")) { try { sessionStorage.setItem("cfc-upd", "1"); } catch (e) {} location.reload(); throw new Error("update"); }
     if (!r.ok) throw new Error("HTTP " + r.status);
     return r.json();
   }
