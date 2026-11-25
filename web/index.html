@@ -919,16 +919,7 @@ aside{grid-template-columns:minmax(0,1fr)}aside>.box{min-width:0}
   .bbody,.bpair{gap:8px}
 }
 .cupw{margin-top:16px}
-.compos{margin:0 0 14px}
-.cp-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.cp-tab{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--muted);font:600 14px var(--body);cursor:pointer;box-shadow:var(--e1)}
-.cp-tab small{font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;background:var(--accent);color:var(--accent-ink,#06210f)}
-.cp-tab.on{color:var(--fg);border-color:var(--accent)}
-.cp-add,.cp-del{padding:7px 12px;border-radius:999px;border:1px dashed var(--line);background:none;color:var(--muted);font:600 13px var(--body);cursor:pointer}
-.cp-add:hover{color:var(--fg);border-color:var(--accent)}
-.cp-del{border-style:solid;margin-left:auto}.cp-del:hover,.cp-del[data-armed="1"]{color:var(--loss);border-color:var(--loss)}
-.cp-note{margin:8px 0 0;font-size:12px;color:var(--muted)}
-body.dragging-on,body.dragging-on *{-webkit-user-select:none!important;user-select:none!important}
+.cp-del{border-style:solid;margin-left:auto}body.dragging-on,body.dragging-on *{-webkit-user-select:none!important;user-select:none!important}
 </style>
 
 </head>
@@ -981,7 +972,6 @@ body.dragging-on,body.dragging-on *{-webkit-user-select:none!important;user-sele
     </div>
   </header>
 
-  <div class="compos" id="compoTabs" hidden></div>
   <div class="main">
     <div class="pitch" id="pitch">
       <div class="pstat left"><b id="sAll">–</b><span>Note effectif</span></div>
@@ -3461,7 +3451,7 @@ function setSync(txt,ok){const s=document.getElementById("syncState");if(!s)retu
 function RO(){return viewAI!=null||!!(window.ME&&window.ME!=="admin"&&state&&state.owner&&state.owner!==window.ME)}
 // Une équipe n'est envoyée au serveur que si son contenu a vraiment changé (un simple affichage ne réécrit rien)
 var BOOK_DIRTY=false,EDITS=0;
-function teamSig(t){return JSON.stringify([t.name,t.formation,t.xi,t.bench,t.res,t.resv,t.captain,t.takers,t.tactic,t.watch||[],t.compos||null,t.ci||0])}
+function teamSig(t){return JSON.stringify([t.name,t.formation,t.xi,t.bench,t.res,t.resv,t.captain,t.takers,t.tactic,t.watch||[]])}
 function markSynced(teams){(teams||[]).forEach(t=>{t._srv=t.ts||0;t._sig=teamSig(t)})}
 function save(){if(typeof state!=="undefined"&&state){if(!state.owner&&window.ME&&window.ME!=="admin")state.owner=window.ME;
     if(!RO()){const sig=teamSig(state);if(sig!==state._sig){state._sig=sig;state.ts=Date.now();BOOK_DIRTY=true;EDITS++}}}
@@ -3480,7 +3470,7 @@ function photoId(n){let h=0;for(const ch of n)h=(h*31+ch.charCodeAt(0))>>>0;retu
 async function pushPhoto(name){if(!cloud)return;try{await cloud.col.doc(photoId(name)).set({name,src:photos[name]})}catch(e){toast("Photo gardée sur cet appareil seulement")}}
 function fixBook(b){if(!b||!Array.isArray(b.teams))return b;
   b.teams=b.teams.map(t=>({id:t.id||("t"+Math.random().toString(36).slice(2,10)),name:t.name||"Sans nom",formation:FORMATIONS[t.formation]?t.formation:"4-3-3",
-    xi:Array.from({length:11},(_,i)=>(t.xi&&t.xi[i])||null),bench:Array.from({length:7},(_,i)=>(t.bench&&t.bench[i])||null),res:Array.from({length:3},(_,i)=>(t.res&&t.res[i])||null),resv:Array.isArray(t.resv)?t.resv.filter(n=>typeof n==="string"):null,owner:typeof t.owner==="string"?t.owner:undefined,ts:+t.ts||0,captain:typeof t.captain==="string"?t.captain:null,takers:(t.takers&&typeof t.takers==="object")?{...t.takers}:{},tactic:TACTICS[t.tactic]?t.tactic:"equilibre",watch:Array.isArray(t.watch)?[...new Set(t.watch.filter(n=>typeof n==="string"))].slice(0,300):[],compos:Array.isArray(t.compos)?t.compos.slice(0,6):undefined,ci:Math.max(0,+t.ci||0)}));return b}
+    xi:Array.from({length:11},(_,i)=>(t.xi&&t.xi[i])||null),bench:Array.from({length:7},(_,i)=>(t.bench&&t.bench[i])||null),res:Array.from({length:3},(_,i)=>(t.res&&t.res[i])||null),resv:Array.isArray(t.resv)?t.resv.filter(n=>typeof n==="string"):null,owner:typeof t.owner==="string"?t.owner:undefined,ts:+t.ts||0,captain:typeof t.captain==="string"?t.captain:null,takers:(t.takers&&typeof t.takers==="object")?{...t.takers}:{},tactic:TACTICS[t.tactic]?t.tactic:"equilibre",watch:Array.isArray(t.watch)?[...new Set(t.watch.filter(n=>typeof n==="string"))].slice(0,300):[]}));return b}
 async function pullCloud(){
   const snap=await cloud.col.get();let remote=null;
   for(const d of snap.docs){const v=d.data();if(d.id==="league"&&v&&v.schedule){const rl=JSON.parse(JSON.stringify(v));if(!league||!league.schedule||rl.id===league.id||!league.results||Object.keys(rl.results||{}).length>=Object.keys(league.results).length){league=rl;try{localStorage.setItem(LKEY,JSON.stringify(league))}catch(e){}}}else if(d.id==="matches"&&v&&Array.isArray(v.list)){const rm=JSON.parse(JSON.stringify(v));const seen=new Set(rm.list.map(x=>x.date));(matches.list||[]).forEach(x=>{if(!seen.has(x.date))rm.list.push(x)});matches={home:rm.home||matches.home,away:rm.away||matches.away,since:[rm.since,matches.since].filter(Boolean).sort()[0]||null,list:rm.list};try{localStorage.setItem(MKEY,JSON.stringify(matches))}catch(e){}}else if(d.id==="photos"&&v&&typeof v==="object"){photos={};Object.entries(v).forEach(([n,u])=>{if(typeof u==="string"&&BY[n])photos[n]=u})}else if(d.id==="book")remote=fixBook(JSON.parse(JSON.stringify(v)));}
@@ -3719,7 +3709,7 @@ function resClosed(t){if(typeof league==="undefined"||!league||!league.roster||!
   const k=league.resFull[t.id];return k!=null&&new Date()>=roundDate(k)}
 function resvOf(t){if(!t)return [];const all=new Set(typeof teamPlayers==="function"&&t.xi?teamPlayers(t):[...(t.xi||[]),...(t.bench||[]),...(t.res||[])].filter(Boolean));
   if(!Array.isArray(t.resv))t.resv=(t.res||[]).filter(n=>n&&U20(BY[n]));t.resv=t.resv.filter(n=>all.has(n)).slice(0,3);return t.resv}
-function teamPlayers(t){const c=(t.compos||[]).flatMap(x=>[...(x.xi||[]),...(x.bench||[]),...(x.res||[])]);return [...new Set([...t.xi,...t.bench,...(t.res||[]),...c].filter(Boolean))]}
+function teamPlayers(t){return [...new Set([...t.xi,...t.bench,...(t.res||[])].filter(Boolean))]}
 function snapRoster(){league.roster={};league.mine.forEach(m=>{const t=book.teams.find(x=>x.id===m.id);if(t)league.roster[m.id]=teamPlayers(t)})}
 function lockedRoster(){if(typeof league==="undefined"||!league||!league.roster||!state)return null;if(seasonDone())return null; // intersaison : mercato ouvert
 return league.roster[state.id]||null}
@@ -5193,30 +5183,6 @@ document.getElementById("imgBtn").onclick=async e=>{
       const miss=SETP.filter(([kk])=>!state.takers||!state.takers[kk]||!state.xi.includes(state.takers[kk])).length;if(miss)box.append(row("Tireurs",`${miss} à désigner`,"warn"));
     }catch(e){box.hidden=true}}
   const _r=render;render=function(){_r.apply(this,arguments);renderPre()};
-})();
-</script>
-<script>
-/* ---- Plusieurs compos par équipe : la compo affichée est celle qui joue ---- */
-(function(){
-  const F=["formation","tactic","xi","bench","res","captain","takers"],MAX=5;
-  const snap=t=>{const o={};F.forEach(k=>o[k]=JSON.parse(JSON.stringify(t[k]===undefined?null:t[k])));return o};
-  function ensure(t){if(!Array.isArray(t.compos)||!t.compos.length){t.compos=[{name:"Compo 1",...snap(t)}];t.ci=0}if(t.ci>=t.compos.length)t.ci=0}
-  function sync(t){ensure(t);const c=t.compos[t.ci];const s=snap(t);let ch=false;F.forEach(k=>{if(JSON.stringify(c[k])!==JSON.stringify(s[k])){c[k]=s[k];ch=true}});return ch}
-  function load(t,k){sync(t);t.ci=k;const c=t.compos[k];F.forEach(k2=>{if(c[k2]!==null&&c[k2]!==undefined)t[k2]=JSON.parse(JSON.stringify(c[k2]))});
-    while(t.xi.length<11)t.xi.push(null);while(t.bench.length<7)t.bench.push(null);if(!t.res)t.res=[null,null,null];while(t.res.length<3)t.res.push(null);if(!t.takers)t.takers={}}
-  function bar(){const box=document.getElementById("compoTabs");if(!box)return;box.replaceChildren();
-    if(typeof state==="undefined"||!state||viewAI!=null){box.hidden=true;return}ensure(state);box.hidden=false;const ro=RO();
-    const row=el("div","cp-row");state.compos.forEach((c,k)=>{const b=el("button","cp-tab"+(k===state.ci?" on":""));b.type="button";b.append(el("span",null,c.name||("Compo "+(k+1))));
-      if(k===state.ci)b.append(el("small",null,"joue"));b.title=k===state.ci?"Compo utilisée pour les matchs":"Utiliser cette compo pour les matchs";
-      b.onclick=()=>{if(k===state.ci){if(!ro){const n=prompt("Nom de la compo",c.name||"");if(n&&n.trim()){c.name=n.trim().slice(0,24);save();render()}}return}
-        if(ro)return;load(state,k);save();render();toast(`${c.name} jouera les prochains matchs`)};row.append(b)});
-    if(!ro&&state.compos.length<MAX){const a=el("button","cp-add","+ Nouvelle compo");a.type="button";a.title="Copie la compo actuelle pour la modifier";
-      a.onclick=()=>{sync(state);const k=state.compos.length;state.compos.push({name:"Compo "+(k+1),...snap(state)});state.ci=k;save();render();toast(`Compo ${k+1} créée à partir de la compo actuelle : elle joue les prochains matchs`)};row.append(a)}
-    if(!ro&&state.compos.length>1){const d=el("button","cp-del","Supprimer");d.type="button";d.title="Supprimer la compo affichée";
-      d.onclick=()=>{if(!d.dataset.armed){d.dataset.armed=1;d.textContent="Confirmer ?";setTimeout(()=>{d.dataset.armed="";d.textContent="Supprimer"},3000);return}
-        const k=state.ci;state.compos.splice(k,1);state.ci=0;const c=state.compos[0];F.forEach(k2=>{if(c[k2]!=null)state[k2]=JSON.parse(JSON.stringify(c[k2]))});save();render();toast("Compo supprimée")};row.append(d)}
-    box.append(row);if(state.compos.length>1)box.append(el("p","cp-note","La compo surlignée est celle qui joue les matchs. Touche une autre compo pour la faire jouer, touche la compo active pour la renommer."))}
-  const _r=render;render=function(){try{if(typeof state!=="undefined"&&state&&viewAI==null&&!RO()&&sync(state)&&typeof save==="function"){}}catch(e){}_r.apply(this,arguments);try{bar()}catch(e){}};
 })();
 </script>
 <script>
