@@ -408,3 +408,24 @@ const server = http.createServer(async (req, res) => {
   }
 });
 server.listen(PORT, () => console.log(`Compo FC sur :${PORT} (TZ=${process.env.TZ}, données=${DATA_DIR}${PERSISTENT ? " [volume]" : " [NON PERSISTANT]"}, slack=${SLACK_WEBHOOK_URL ? "oui" : "non"}, accès=${USERS.map(u => u.name).join("/") || "ouvert"})`));
+
+// Diagnostic : joueurs présents dans les sauvegardes récentes mais absents aujourd'hui
+setTimeout(() => {
+  try {
+    const now = store.docs.book && store.docs.book.teams || [];
+    const names = t => ({ xi: t.xi || [], bench: t.bench || [], res: t.res || [], watch: t.watch || [] });
+    console.log("DIAG now", JSON.stringify(now.map(t => ({ id: t.id, n: t.name, o: t.owner, f: t.formation, ts: t.ts, ...names(t), nums: t.nums }))));
+    for (const f of listBackups().slice(0, 30)) {
+      try {
+        const s = readJSON(path.join(BACKUP_DIR, f)), bt = s.docs.book && s.docs.book.teams || [];
+        const out = bt.map(t => { const c = now.find(x => x.id === t.id); if (!c) return { id: t.id, n: t.name, gone: true };
+          const all = new Set([...c.xi, ...c.bench, ...(c.res || []), ...(c.watch || [])]);
+          const miss = [...(t.xi || []), ...(t.bench || []), ...(t.res || [])].filter(x => x && !all.has(x));
+          const mw = (t.watch || []).filter(x => !all.has(x));
+          return { n: t.name, ts: t.ts, miss, mw };
+        });
+        console.log("DIAG", f, JSON.stringify(out));
+      } catch (e) { console.log("DIAG err", f, e.message); }
+    }
+  } catch (e) { console.log("DIAG fail", e.message); }
+}, 3000);
