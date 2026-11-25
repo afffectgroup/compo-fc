@@ -409,23 +409,27 @@ const server = http.createServer(async (req, res) => {
 });
 server.listen(PORT, () => console.log(`Compo FC sur :${PORT} (TZ=${process.env.TZ}, données=${DATA_DIR}${PERSISTENT ? " [volume]" : " [NON PERSISTANT]"}, slack=${SLACK_WEBHOOK_URL ? "oui" : "non"}, accès=${USERS.map(u => u.name).join("/") || "ouvert"})`));
 
-// Diagnostic : joueurs présents dans les sauvegardes récentes mais absents aujourd'hui
+// Réparation ponctuelle (25/11) : une ancienne version de l'app (3 réservistes) a vidé des places de réserve.
+// On remet, depuis la sauvegarde d'avant, les joueurs dont la place est vide aujourd'hui et qui ne sont plus dans l'équipe.
 setTimeout(() => {
   try {
-    const now = store.docs.book && store.docs.book.teams || [];
-    const names = t => ({ xi: t.xi || [], bench: t.bench || [], res: t.res || [], watch: t.watch || [] });
-    console.log("DIAG now", JSON.stringify(now.map(t => ({ id: t.id, n: t.name, o: t.owner, f: t.formation, ts: t.ts, ...names(t), nums: t.nums }))));
-    for (const f of listBackups().slice(0, 30)) {
-      try {
-        const s = readJSON(path.join(BACKUP_DIR, f)), bt = s.docs.book && s.docs.book.teams || [];
-        const out = bt.map(t => { const c = now.find(x => x.id === t.id); if (!c) return { id: t.id, n: t.name, gone: true };
-          const all = new Set([...c.xi, ...c.bench, ...(c.res || []), ...(c.watch || [])]);
-          const miss = [...(t.xi || []), ...(t.bench || []), ...(t.res || [])].filter(x => x && !all.has(x));
-          const mw = (t.watch || []).filter(x => !all.has(x));
-          return { n: t.name, ts: t.ts, miss, mw };
-        });
-        console.log("DIAG", f, JSON.stringify(out));
-      } catch (e) { console.log("DIAG err", f, e.message); }
+    if (store.meta.fixRes1125) return;
+    const f = path.join(BACKUP_DIR, "state-20261125-2035.json");
+    if (!fs.existsSync(f) || !store.docs.book || !Array.isArray(store.docs.book.teams)) return;
+    const old = readJSON(f).docs.book.teams || [];
+    let n = 0;
+    for (const t of store.docs.book.teams) {
+      const o = old.find(x => x.id === t.id); if (!o) continue;
+      const has = new Set([...(t.xi || []), ...(t.bench || []), ...(t.res || [])].filter(Boolean));
+      for (const k of ["xi", "bench", "res"]) {
+        const cur = t[k] || (t[k] = []), was = o[k] || [];
+        for (let i = 0; i < was.length; i++) if (was[i] && !cur[i] && !has.has(was[i])) { cur[i] = was[i]; has.add(was[i]); n++; console.log("réparation :", t.name, k, i, was[i]); }
+      }
+      if (o.nums && Object.keys(o.nums).length) t.nums = { ...o.nums, ...(t.nums || {}) };
+      if (n) t.ts = Date.now();
     }
-  } catch (e) { console.log("DIAG fail", e.message); }
-}, 3000);
+    store.meta.fixRes1125 = Date.now();
+    persist();
+    console.log("réparation des réserves terminée :", n, "joueur(s) remis");
+  } catch (e) { console.log("réparation impossible :", e.message); }
+}, 2000);
